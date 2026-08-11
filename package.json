@@ -1,0 +1,44 @@
+{
+  "name": "homebridge-insnrg-pool",
+  "displayName": "INSNRG Pool",
+  "version": "1.0.1",
+  "description": "Homebridge plugin for INSNRG (Vi/Hub) pool equipment via the INSNRG cloud API — pool/spa heating, outlets, valves, lights, pump speed, chlorinator, pH/ORP.",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "license": "MIT",
+  "author": "dabs79",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dabs79/homebridge-insnrg-pool.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dabs79/homebridge-insnrg-pool/issues"
+  },
+  "homepage": "https://github.com/dabs79/homebridge-insnrg-pool#readme",
+  "keywords": [
+    "homebridge-plugin",
+    "homebridge",
+    "insnrg",
+    "pool",
+    "spa",
+    "chlorinator",
+    "homekit"
+  ],
+  "engines": {
+    "node": ">=18.15.0",
+    "homebridge": "^1.6.0 || ^2.0.0-beta.0"
+  },
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "npm run clean && tsc",
+    "verify": "tsx verify/verify.ts && tsx verify/smoke.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "homebridge": "^1.8.5",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

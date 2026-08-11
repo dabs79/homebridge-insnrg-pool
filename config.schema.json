@@ -1,0 +1,86 @@
+{
+  "pluginAlias": "InsnrgPool",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Bridges INSNRG (Vi/Hub) pool equipment into HomeKit via the INSNRG cloud API. Use your insnrgapp.com login. In the INSNRG app, enable Voice Control under Connected Systems first.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "INSNRG Pool",
+        "required": true
+      },
+      "email": {
+        "title": "INSNRG Email",
+        "type": "string",
+        "format": "email",
+        "required": true,
+        "description": "The email you use to log in at insnrgapp.com."
+      },
+      "password": {
+        "title": "INSNRG Password",
+        "type": "string",
+        "required": true,
+        "description": "Your insnrgapp.com password. Stored in your Homebridge config.",
+        "x-schema-form": { "type": "password" }
+      },
+      "pollIntervalSeconds": {
+        "title": "Poll Interval (seconds)",
+        "type": "integer",
+        "default": 300,
+        "minimum": 60,
+        "description": "How often to refresh state from the INSNRG cloud. Pool equipment changes slowly; 300s is a polite default for a cloud API (the Home Assistant reference polls every 900s). Minimum 60."
+      },
+      "setpointMin": {
+        "title": "Heater Setpoint Minimum (°C)",
+        "type": "number",
+        "default": 10,
+        "description": "Fallback lower limit for the pool/spa thermostat, used when the cloud reports an implausible range."
+      },
+      "setpointMax": {
+        "title": "Heater Setpoint Maximum (°C)",
+        "type": "number",
+        "default": 40,
+        "description": "Fallback upper limit for the pool/spa thermostat, used when the cloud reports an implausible range."
+      },
+      "exposeTimerSwitches": {
+        "title": "Expose Timer-mode switches",
+        "type": "boolean",
+        "default": false,
+        "description": "Adds a second '<name> Timer' switch to each outlet/valve/contact that supports schedule (TimerOn) mode. On = device is running on its schedule."
+      },
+      "exposeTimers": {
+        "title": "Expose the 4 schedule timers",
+        "type": "boolean",
+        "default": false,
+        "description": "Exposes TIMER 1-4 enable switches (and chlorinator timer variants) as HomeKit switches. Off by default to reduce clutter."
+      },
+      "exposeLightModes": {
+        "title": "Expose light colour-mode switches",
+        "type": "boolean",
+        "default": false,
+        "description": "Adds one switch per light colour mode (e.g. Ocean, Sunset) on the pool light accessory. Turning one on selects that mode."
+      },
+      "exposeChemistrySensors": {
+        "title": "Expose pH / ORP sensors",
+        "type": "boolean",
+        "default": true,
+        "description": "HomeKit has no pH or millivolt sensor type, so pH appears as a temperature sensor (reading = pH) and ORP as a light sensor (reading = mV). Disable if that bothers you."
+      },
+      "exposeChlorinator": {
+        "title": "Expose chlorinator level",
+        "type": "boolean",
+        "default": true,
+        "description": "Chlorinator output level as a stepped fan slider."
+      },
+      "debug": {
+        "title": "Debug: log raw cloud responses",
+        "type": "boolean",
+        "default": false,
+        "description": "Dumps the raw getall JSON to the Homebridge log each poll. Turn on when a value parses wrong so the raw payload can be diagnosed remotely."
+      }
+    }
+  }
+}

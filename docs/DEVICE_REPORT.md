@@ -7,13 +7,13 @@ of the README and the fixture source for the verification harness.
 
 | Item | Value |
 |---|---|
-| Automation/chlorinator unit (Vi 25 / Vi 40 / other) | |
+| Automation/chlorinator unit (Vi 25 / Vi 40 / other) | Vi (25/40 — confirm size on back panel) |
 | Firmware / app version (inTouch app → settings) | |
 | inTouch Expansion (Relay Hub) fitted? | yes / no |
-| Heater type + model (heat pump / gas, brand) | |
+| Heater type + model (heat pump / gas, brand) | Insnrg Gi gas heater (160/265/420 — confirm) |
 | Heater wired to VF contact | VF_CONTACT_? |
-| Pump model | |
-| Pump speed names shown in inTouch app | |
+| Pump model | Insnrg Si single speed (200/300/400/500 — confirm) |
+| Pump speed names shown in inTouch app | n/a — single speed, no data cable |
 | Light brand + colour mode names | |
 | pH/ORP dosing (Vi premium probes) fitted? | yes / no |
 

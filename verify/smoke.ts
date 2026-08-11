@@ -119,6 +119,13 @@ tryCase('Stepped fan CHLORINATOR (8 levels)', () => {
   a.update(state['CHLORINATOR']);
 });
 
+tryCase('Stepped fan with single-level modeList (single-speed pump edge)', () => {
+  const a = new SteppedFanAccessory(fakePlatform, acc(), 'PUMP_SPEED', 'Pump Speed');
+  const bad = JSON.parse(JSON.stringify(state['PUMP_SPEED']));
+  bad.modeList = ['On'];
+  a.update(bad); // platform normally filters this out; accessory must still not throw
+});
+
 tryCase('Stepped fan with empty modeList', () => {
   const a = new SteppedFanAccessory(fakePlatform, acc(), 'PUMP_SPEED', 'Pump Speed');
   const bad = JSON.parse(JSON.stringify(state['PUMP_SPEED']));

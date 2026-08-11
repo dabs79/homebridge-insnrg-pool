@@ -35,6 +35,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   private polling = false;
   private prunedOnce = false;
   private consecutiveFailures = 0;
+  private readonly skipLogged = new Set<string>();
 
   constructor(
     public readonly log: Logger,
@@ -168,8 +169,21 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
     if (SWITCH_KEYS.includes(key)) return { kind: 'switch' };
     if (TIMER_KEYS.includes(key)) return this.cfg.exposeTimers ? { kind: 'switch' } : null;
     if (device.type === 'LIGHT') return { kind: 'light' };
-    if (key === 'PUMP_SPEED') return { kind: 'steppedFan' };
-    if (key === 'CHLORINATOR') return this.cfg.exposeChlorinator ? { kind: 'steppedFan' } : null;
+    if (key === 'PUMP_SPEED' || key === 'CHLORINATOR') {
+      if (key === 'CHLORINATOR' && !this.cfg.exposeChlorinator) return null;
+      // Single-speed pumps (e.g. Insnrg Si): the Vi only offers speed selection
+      // with a Qi variable-speed pump on the data cable. Fewer than 2 levels
+      // means there is nothing to slide — pump on/off is the Filter Mode switch.
+      if ((device.modeList?.length ?? 0) < 2) {
+        if (!this.skipLogged.has(key)) {
+          this.skipLogged.add(key);
+          this.log.info(`${key}: fewer than 2 levels reported (${JSON.stringify(device.modeList ?? [])}) — `
+            + 'skipping slider. For a single-speed pump, on/off is the "Filter Mode" switch.');
+        }
+        return null;
+      }
+      return { kind: 'steppedFan' };
+    }
     // LIGHT_MODE pseudo-device is consumed by the light accessory, not exposed on its own.
     return null;
   }

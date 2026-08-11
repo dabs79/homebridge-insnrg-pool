@@ -6,6 +6,22 @@ The API layer is a faithful TypeScript port of the working Home Assistant integr
 
 > **Cloud, not local.** Your INSNRG controller talks to INSNRG's cloud; this plugin authenticates to that cloud with your **insnrgapp.com email + password**. There is no LAN connection, so state changes made at the console can take up to one poll interval to appear in HomeKit, and the plugin needs internet access.
 
+## Supported equipment
+
+Developed and tested against this INSNRG stack (per the official IO manuals):
+
+| Equipment | Models | How it appears in HomeKit |
+|---|---|---|
+| Vi Automation & Chlorination System | Vi 25, Vi 40 | The brain: source of all outlets (3× 240V), valves (3× actuators), timers, chlorinator level, pH/ORP |
+| inTouch Portal | — | Required — the Wi-Fi bridge that connects the Vi to the INSNRG cloud API |
+| Si Single Speed Pump | Si 200 / 300 / 400 / 500 | On/off via the **Filter Mode** switch (runs pump + chlorinator). No speed slider — the Vi only offers speed selection with a Qi variable-speed pump on the data cable, and the plugin skips the slider when fewer than 2 levels are reported. |
+| Qi Variable Speed Pump | (untested) | Should appear as the stepped Pump Speed fan slider |
+| Gi Gas Heater | Gi 160 / 265 / 420 | On/off via the VF-contact switch (`VF_CONTACT_1`, usually named "Gas"); water temperature setpoint via the Pool/Spa Thermostat |
+| inTouch Expansion (Relay Hub) | (untested) | Extra `OUTLET_HUB_x` / `VALVE_HUB_x` / `VF_CONTACT_HUB_x` switches |
+| Mi Sand Filter | Mi 250 / 320 / 350 / 400 | Not bridged — passive equipment; backwash is a manual multiport-valve operation |
+
+Other configurations (heat pumps on the VF contact, Vi-connected lights, spa combos) follow the same device keys and should work; see `docs/DEVICE_REPORT.md` to contribute a tested-system report.
+
 ## Prerequisites
 
 - An account at [insnrgapp.com](https://www.insnrgapp.com) with your system linked.

@@ -88,6 +88,13 @@
         "type": "boolean",
         "default": true,
         "description": "Gas heater ignition requires water flow. When on, switching the Gas Heater tile on will first turn the Filter Pump on if it isn't running."
+      },
+      "heaterPumpOffDelayMinutes": {
+        "title": "Turn pump off N minutes after heater-off",
+        "type": "integer",
+        "default": 0,
+        "minimum": 0,
+        "description": "0 (default): the plugin never stops the pump when the heater turns off. Set e.g. 10 to have the pump turned off that many minutes after heater-off \u2014 keep it above ~6 so the Gi's 5-minute heat-purge run-on completes. Cancelled automatically if the heater is turned back on."
       }
     }
   }

@@ -27,6 +27,7 @@ export class SteppedFanAccessory implements InsnrgAccessoryHandler {
     this.fan = accessory.getService(Service.Fanv2)
       ?? accessory.addService(Service.Fanv2, name);
     this.fan.setCharacteristic(Characteristic.Name, name);
+    this.fan.setPrimaryService(true);
 
     this.fan.getCharacteristic(Characteristic.Active)
       .onGet(() => Characteristic.Active.ACTIVE)

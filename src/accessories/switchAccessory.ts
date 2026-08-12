@@ -31,6 +31,9 @@ export class SwitchAccessory implements InsnrgAccessoryHandler {
     this.main = accessory.getServiceById(Service.Switch, 'main')
       ?? accessory.addService(Service.Switch, name, 'main');
     this.main.setCharacteristic(Characteristic.Name, name);
+    // Two same-type services without an explicit primary can render as
+    // "Not Supported" in the Home app — always mark the main switch primary.
+    this.main.setPrimaryService(true);
     this.main.getCharacteristic(Characteristic.On)
       .onGet(() => this.device?.switchStatus === 'ON')
       .onSet(async (v) => {

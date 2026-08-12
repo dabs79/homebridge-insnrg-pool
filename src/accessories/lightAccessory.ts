@@ -26,6 +26,7 @@ export class LightAccessory implements InsnrgAccessoryHandler {
     this.bulb = accessory.getService(Service.Lightbulb)
       ?? accessory.addService(Service.Lightbulb, name);
     this.bulb.setCharacteristic(Characteristic.Name, name);
+    this.bulb.setPrimaryService(true);
     this.bulb.getCharacteristic(Characteristic.On)
       .onGet(() => this.device?.switchStatus === 'ON')
       .onSet(async (v) => {

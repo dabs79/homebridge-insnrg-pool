@@ -26,7 +26,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   public readonly client: InsnrgClient;
   public readonly cfg: Required<Pick<InsnrgPlatformConfig,
     'pollIntervalSeconds' | 'setpointMin' | 'setpointMax' | 'exposeTimerSwitches' |
-    'exposeTimers' | 'exposeLightModes' | 'exposeChemistrySensors' | 'exposeChlorinator' | 'heaterAutoPump' | 'debug'>>;
+    'exposeTimers' | 'exposeLightModes' | 'exposeChemistrySensors' | 'exposeChlorinator' | 'heaterAutoPump' | 'heaterPumpOffDelayMinutes' | 'debug'>>;
 
   private readonly cached = new Map<string, PlatformAccessory>();
   private readonly handlers = new Map<string, InsnrgAccessoryHandler>();
@@ -41,6 +41,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   private consecutiveFailures = 0;
   private readonly skipLogged = new Set<string>();
   private lastState?: InsnrgStateMap;
+  private pumpOffTimer?: NodeJS.Timeout;
 
   constructor(
     public readonly log: Logger,
@@ -60,6 +61,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
       exposeChemistrySensors: config.exposeChemistrySensors ?? true,
       exposeChlorinator: config.exposeChlorinator ?? true,
       heaterAutoPump: config.heaterAutoPump ?? true,
+      heaterPumpOffDelayMinutes: Math.max(0, config.heaterPumpOffDelayMinutes ?? 0),
       debug: config.debug ?? false,
     };
 
@@ -74,6 +76,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
     this.api.on('shutdown', () => {
       if (this.pollTimer) clearInterval(this.pollTimer);
       if (this.refreshTimer) clearTimeout(this.refreshTimer);
+      if (this.pumpOffTimer) clearTimeout(this.pumpOffTimer);
     });
   }
 
@@ -247,9 +250,25 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
     // pump is running minutes after a timer stopped it (live-fire bug, v1.6.0):
     // a redundant TurnOn is harmless; a skipped one is a failed ignition.
     if (key === 'GAS_HEATER' && mode === 'ON' && this.cfg.heaterAutoPump) {
+      if (this.pumpOffTimer) { clearTimeout(this.pumpOffTimer); this.pumpOffTimer = undefined; }
       const pumpId = this.lastState?.['MODE']?.deviceId ?? 'MODE';
       this.log.info('→ GAS_HEATER on: ensuring Filter Pump is on first (heaterAutoPump)');
       await this.client.turnTheSwitch('ON', pumpId);
+    }
+    // Optional delayed pump-off after heater-off. Never immediate: the Gi's
+    // run-on purges residual heat through the pump for ~5 minutes.
+    if (key === 'GAS_HEATER' && mode === 'OFF' && this.cfg.heaterPumpOffDelayMinutes > 0) {
+      if (this.pumpOffTimer) clearTimeout(this.pumpOffTimer);
+      const delayMin = this.cfg.heaterPumpOffDelayMinutes;
+      const pumpId = this.lastState?.['MODE']?.deviceId ?? 'MODE';
+      this.log.info(`GAS_HEATER off: Filter Pump will be turned off in ${delayMin} min (heaterPumpOffDelayMinutes; cancelled if heater restarts)`);
+      this.pumpOffTimer = setTimeout(() => {
+        this.pumpOffTimer = undefined;
+        this.log.info('→ MODE: OFF (delayed pump-off after heater shutdown)');
+        this.client.turnTheSwitch('OFF', pumpId)
+          .then(() => this.requestRefreshSoon())
+          .catch((e) => this.log.error(`Delayed pump-off failed: ${e instanceof Error ? e.message : e}`));
+      }, delayMin * 60 * 1000);
     }
     this.log.info(`→ ${key}: ${mode} (setDeviceStatus/${mode})`);
     await this.client.turnTheSwitch(mode, deviceId);

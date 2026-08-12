@@ -15,5 +15,6 @@ export interface InsnrgPlatformConfig {
   exposeChemistrySensors?: boolean; // pH / ORP readouts (as temp/light sensors — HomeKit has no pH type)
   exposeChlorinator?: boolean;    // chlorinator level as a stepped fan
   heaterAutoPump?: boolean;       // turning the heater on starts the filter pump first (gas ignition needs flow)
+  heaterPumpOffDelayMinutes?: number; // 0 (default) = never auto-stop the pump; >0 = stop it N minutes after heater-off (stay past the Gi's ~5-minute heat-purge run-on)
   debug?: boolean;                // dump raw getall JSON to the log each poll
 }

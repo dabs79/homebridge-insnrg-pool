@@ -34,6 +34,7 @@ export class GasHeaterAccessory implements InsnrgAccessoryHandler {
     this.service = accessory.getService(Service.Thermostat)
       ?? accessory.addService(Service.Thermostat, name);
     this.service.setCharacteristic(Characteristic.Name, name);
+    this.service.setPrimaryService(true);
 
     this.service.getCharacteristic(Characteristic.TargetHeatingCoolingState)
       .setProps({

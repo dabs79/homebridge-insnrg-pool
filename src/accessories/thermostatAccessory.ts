@@ -31,6 +31,7 @@ export class ThermostatAccessory implements InsnrgAccessoryHandler {
     this.service = accessory.getService(Service.Thermostat)
       ?? accessory.addService(Service.Thermostat, name);
     this.service.setCharacteristic(Characteristic.Name, name);
+    this.service.setPrimaryService(true);
 
     const target0 = this.service.getCharacteristic(Characteristic.TargetTemperature);
     setRangeAndValue(target0, this.min, this.max, 0.5, (this.min + this.max) / 2);

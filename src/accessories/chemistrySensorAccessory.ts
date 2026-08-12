@@ -59,6 +59,7 @@ export class ChemistrySensorAccessory implements InsnrgAccessoryHandler {
         .onGet(() => this.reading());
     }
     this.sensor.setCharacteristic(Characteristic.Name, name);
+    this.sensor.setPrimaryService(true);
 
     const setterName = this.isPh ? 'pH Setpoint' : 'ORP Setpoint';
     this.setter = accessory.getServiceById(Service.Fanv2, 'setpoint')

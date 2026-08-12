@@ -242,11 +242,13 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   /** Shared command wrapper: log, fire, schedule the 3s refresh, surface failures. */
   async sendSwitch(key: string, deviceId: string, mode: SwitchMode): Promise<void> {
     // Gas ignition halts without water flow (Gi manual): when turning the
-    // heater on, start the filter pump first unless it's already running.
-    if (key === 'GAS_HEATER' && mode === 'ON' && this.cfg.heaterAutoPump
-        && this.lastState?.['MODE']?.switchStatus !== 'ON') {
+    // heater on, ALWAYS send Filter Pump ON first. Never gate this on cached
+    // poll state — with a multi-minute poll interval the cache can claim the
+    // pump is running minutes after a timer stopped it (live-fire bug, v1.6.0):
+    // a redundant TurnOn is harmless; a skipped one is a failed ignition.
+    if (key === 'GAS_HEATER' && mode === 'ON' && this.cfg.heaterAutoPump) {
       const pumpId = this.lastState?.['MODE']?.deviceId ?? 'MODE';
-      this.log.info('→ GAS_HEATER on: starting Filter Pump first (heaterAutoPump)');
+      this.log.info('→ GAS_HEATER on: ensuring Filter Pump is on first (heaterAutoPump)');
       await this.client.turnTheSwitch('ON', pumpId);
     }
     this.log.info(`→ ${key}: ${mode} (setDeviceStatus/${mode})`);

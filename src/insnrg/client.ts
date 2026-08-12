@@ -175,6 +175,11 @@ export class InsnrgClient {
    * Encoding: valArgument = [round(tempC * 2)]  (half-degree integers;
    * 32->64, 34->68, 36->72 in the captures).
    *
+   * VERIFICATION BOUNDARY: only the POOL variants were captured (the source
+   * system is a single body of water — pool with jets, no separate spa). The
+   * SPA command strings are pattern-inferred and UNVERIFIED; capture them from
+   * a real pool/spa combo before trusting them.
+   *
    * The Authorization header format on this gateway is unconfirmed: we try the
    * raw idToken first (matching the getall quirk) and fall back to Bearer.
    */

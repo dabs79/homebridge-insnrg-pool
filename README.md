@@ -43,6 +43,8 @@ Other configurations (heat pumps on the VF contact, Vi-connected lights, spa com
 | pH | Temperature sensor | **Workaround**: HomeKit has no pH type; the "°C" reading *is* the pH |
 | ORP | Light sensor | **Workaround**: the "lux" reading *is* the ORP in mV |
 
+**Pool vs spa temperature commands:** the set-temperature path was reverse-engineered from a single-body-of-water system (pool with spa jets, no separate spa circuit), so only the `_POOL` command variants are capture-verified. The `_SPA` variants exist in the client by naming pattern only — if you have a true pool/spa combo, capture the web app's requests when setting the SPA temperature (DevTools → Network → `send`) and open an issue so they can be verified.
+
 pH/ORP **setpoints** are intentionally read-only for now (adjust them in the INSNRG app); the `setChemistry` command is already ported and verified if we want writable setpoints later.
 
 ## Install (local, unpublished)
@@ -65,6 +67,13 @@ Then restart Homebridge and add the **InsnrgPool** platform via the Homebridge U
   "pollIntervalSeconds": 300
 }
 ```
+
+## Pairing the child bridge (and troubleshooting)
+
+Run this plugin as a **child bridge** (Homebridge UI → plugin → Bridge Settings). A child bridge is its own HomeKit accessory and must be paired separately: Bridge Settings shows its QR/setup code; in the Home app use **Add Accessory → More options** if scanning doesn't offer it.
+
+- **Child bridge doesn't appear under "More options":** its HomeKit identity is probably duplicated or stale (e.g. it came up sharing an identity with the main bridge). In Bridge Settings, **reset/re-generate the child bridge** so it gets a unique username + pairing code, restart, and it will advertise fresh.
+- **Paired but all accessories "Not responding":** check the child bridge's log first — a crashing bridge looks exactly like this. If the log is healthy: **pin a fixed port** in Bridge Settings (child bridges otherwise pick a random port each restart, which upsets iOS caches and port-scoped firewalls), confirm Windows Firewall allows Node.js on Private networks, try switching the mDNS advertiser (Settings → Network → Ciao ↔ Bonjour HAP), and reboot your iPhone and Home hub (Apple TV/HomePod — ongoing control flows through the hub, so it must reach the Homebridge machine too). As a last resort remove the bridge from the Home app and re-pair once with the port pinned.
 
 ## Config options
 

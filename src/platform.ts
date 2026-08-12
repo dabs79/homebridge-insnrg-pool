@@ -28,7 +28,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   public readonly client: InsnrgClient;
   public readonly cfg: Required<Pick<InsnrgPlatformConfig,
     'pollIntervalSeconds' | 'setpointMin' | 'setpointMax' | 'exposeTimerSwitches' |
-    'exposeTimers' | 'exposeLightModes' | 'exposeChemistrySensors' | 'exposeChlorinator' | 'heaterAutoPump' | 'heaterPumpOffDelayMinutes' | 'exposeWaterTempSensor' | 'debug'>>;
+    'exposeTimers' | 'exposeLightModes' | 'exposeChemistrySensors' | 'exposeChlorinator' | 'heaterAutoPump' | 'heaterPumpOffDelayMinutes' | 'exposeWaterTempSensor' | 'chemistrySetpoints' | 'debug'>>;
 
   private readonly cached = new Map<string, PlatformAccessory>();
   private readonly handlers = new Map<string, InsnrgAccessoryHandler>();
@@ -68,6 +68,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
       heaterAutoPump: config.heaterAutoPump ?? true,
       heaterPumpOffDelayMinutes: Math.max(0, config.heaterPumpOffDelayMinutes ?? 0),
       exposeWaterTempSensor: config.exposeWaterTempSensor ?? true,
+      chemistrySetpoints: config.chemistrySetpoints ?? false,
       debug: config.debug ?? false,
     };
 

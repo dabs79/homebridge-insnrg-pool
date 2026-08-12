@@ -11,7 +11,10 @@ import type { InsnrgDevice } from '../insnrg/parse';
  * missing. All characteristic props must stay within Apple's defined ranges.
  *
  * Model now:
- *   Reading:  pH → TemperatureSensor (the "°" value IS the pH; 0-100 spec-ok)
+ *   Reading:  pH → HumiditySensor, value = pH × 10 (81% = pH 8.1). NOT a
+ *             TemperatureSensor: those aggregate into the room's temperature
+ *             range in the Home app, so a pH of 8 rendered a phantom "8-23°"
+ *             room spread (v2.1.0 lesson).
  *             ORP → LightSensor (the "lux" value IS the mV; spec-ok)
  *   Setpoint: a Fan speed slider on the same tile (0-100%, spec-ok):
  *             pH  slider = pH × 10   (77% = pH 7.7)
@@ -21,7 +24,7 @@ import type { InsnrgDevice } from '../insnrg/parse';
  */
 export class ChemistrySensorAccessory implements InsnrgAccessoryHandler {
   private readonly sensor: Service;
-  private readonly setter: Service;
+  private readonly setter?: Service;
   private device?: InsnrgDevice;
   private readonly isPh: boolean;
 
@@ -35,22 +38,18 @@ export class ChemistrySensorAccessory implements InsnrgAccessoryHandler {
     this.isPh = key === 'PH';
 
     // Migrate away from earlier service shapes on cached accessories.
-    const staleThermo = accessory.getService(Service.Thermostat);
-    if (staleThermo) accessory.removeService(staleThermo);
-    if (this.isPh) {
-      const staleLux = accessory.getService(Service.LightSensor);
-      if (staleLux) accessory.removeService(staleLux);
-    } else {
-      const staleTemp = accessory.getService(Service.TemperatureSensor);
-      if (staleTemp) accessory.removeService(staleTemp);
+    for (const stale of [Service.Thermostat, Service.TemperatureSensor,
+      ...(this.isPh ? [Service.LightSensor] : [])]) {
+      const svc = accessory.getService(stale);
+      if (svc) accessory.removeService(svc);
     }
 
     if (this.isPh) {
-      this.sensor = accessory.getService(Service.TemperatureSensor)
-        ?? accessory.addService(Service.TemperatureSensor, name);
-      this.sensor.getCharacteristic(Characteristic.CurrentTemperature)
-        .setProps({ minValue: 0, maxValue: 14, minStep: 0.1 })
-        .onGet(() => this.reading());
+      this.sensor = accessory.getService(Service.HumiditySensor)
+        ?? accessory.addService(Service.HumiditySensor, name);
+      this.sensor.getCharacteristic(Characteristic.CurrentRelativeHumidity)
+        .setProps({ minValue: 0, maxValue: 100, minStep: 1 })
+        .onGet(() => this.phAsPercent());
     } else {
       this.sensor = accessory.getService(Service.LightSensor)
         ?? accessory.addService(Service.LightSensor, name);
@@ -61,15 +60,23 @@ export class ChemistrySensorAccessory implements InsnrgAccessoryHandler {
     this.sensor.setCharacteristic(Characteristic.Name, name);
     this.sensor.setPrimaryService(true);
 
+    // Setpoint sliders are OPT-IN (chemistrySetpoints, default off): they
+    // render as fan tiles, which clutters rooms and invites accidental
+    // toggles — targets are set-and-forget and live comfortably in the app.
+    const existingSetter = accessory.getServiceById(Service.Fanv2, 'setpoint');
+    if (!platform.cfg.chemistrySetpoints) {
+      if (existingSetter) accessory.removeService(existingSetter);
+      return;
+    }
     const setterName = this.isPh ? 'pH Setpoint' : 'ORP Setpoint';
-    this.setter = accessory.getServiceById(Service.Fanv2, 'setpoint')
+    this.setter = existingSetter
       ?? accessory.addService(Service.Fanv2, setterName, 'setpoint');
     this.setter.setCharacteristic(Characteristic.Name, setterName);
     this.setter.getCharacteristic(Characteristic.Active)
       .onGet(() => Characteristic.Active.ACTIVE)
       .onSet((v) => {
         if (v === Characteristic.Active.INACTIVE) {
-          setTimeout(() => this.setter.updateCharacteristic(Characteristic.Active, Characteristic.Active.ACTIVE), 500);
+          setTimeout(() => this.setter?.updateCharacteristic(Characteristic.Active, Characteristic.Active.ACTIVE), 500);
         }
       });
     this.setter.getCharacteristic(Characteristic.RotationSpeed)
@@ -91,6 +98,11 @@ export class ChemistrySensorAccessory implements InsnrgAccessoryHandler {
     return this.isPh
       ? Math.min(14, Math.max(0, n as number))
       : Math.min(2000, Math.max(0.0001, n as number));
+  }
+
+  /** pH shown on the humidity characteristic: ×10, same convention as the setpoint slider. */
+  private phAsPercent(): number {
+    return Math.min(100, Math.max(0, Math.round(this.reading() * 10)));
   }
 
   private setpoint(): number {
@@ -119,11 +131,11 @@ export class ChemistrySensorAccessory implements InsnrgAccessoryHandler {
     this.device = device;
     const { Characteristic } = this.platform;
     if (this.isPh) {
-      this.sensor.updateCharacteristic(Characteristic.CurrentTemperature, this.reading());
+      this.sensor.updateCharacteristic(Characteristic.CurrentRelativeHumidity, this.phAsPercent());
     } else {
       this.sensor.updateCharacteristic(Characteristic.CurrentAmbientLightLevel, this.reading());
     }
-    this.setter.updateCharacteristic(Characteristic.Active, Characteristic.Active.ACTIVE);
-    this.setter.updateCharacteristic(Characteristic.RotationSpeed, this.setpointToSlider(this.setpoint()));
+    this.setter?.updateCharacteristic(Characteristic.Active, Characteristic.Active.ACTIVE);
+    this.setter?.updateCharacteristic(Characteristic.RotationSpeed, this.setpointToSlider(this.setpoint()));
   }
 }

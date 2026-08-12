@@ -36,6 +36,7 @@ const APPLE_RANGES: Record<string, [number, number]> = {
   RotationSpeed: [0, 100],
   CurrentAmbientLightLevel: [0.0001, 100000],
   TargetRelativeHumidity: [0, 100],
+  CurrentRelativeHumidity: [0, 100],
 };
 function checkAppleRanges(): string[] {
   const problems: string[] = [];
@@ -86,7 +87,7 @@ const fakePlatform = {
   cfg: {
     pollIntervalSeconds: 300, setpointMin: 10, setpointMax: 38,
     exposeTimerSwitches: true, exposeTimers: true, exposeLightModes: true,
-    exposeChemistrySensors: true, exposeChlorinator: true, debug: false,
+    exposeChemistrySensors: true, exposeChlorinator: true, chemistrySetpoints: true, debug: false,
   },
   client: {
     setThermostatTemp: async () => {}, turnTheSwitch: async () => {},
@@ -197,6 +198,12 @@ tryCase('Stepped fan with empty modeList', () => {
   const bad = JSON.parse(JSON.stringify(state['PUMP_SPEED']));
   delete bad.modeList;
   a.update(bad);
+});
+
+tryCase('pH read-only (chemistrySetpoints off removes the slider service)', () => {
+  const roPlatform = { ...(fakePlatform as object), cfg: { ...(fakePlatform as { cfg: object }).cfg, chemistrySetpoints: false } } as never;
+  const a = new ChemistrySensorAccessory(roPlatform, acc(), 'PH', 'pH Sensor');
+  a.update(state['PH']);
 });
 
 tryCase('pH thermostat (real range 7.0-7.8, reading above max)', () => {

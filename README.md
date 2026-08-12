@@ -40,7 +40,7 @@ Other configurations (heat pumps on the VF contact, Vi-connected lights, spa com
 | Pool light | Lightbulb | Colour modes optionally as one switch per mode (`exposeLightModes`) |
 | Pump speed | Fan | Stepped slider — e.g. 3 levels = 33% / 67% / 100% |
 | Chlorinator level | Fan | Stepped slider over the reported levels |
-| pH | Temperature sensor | **Workaround**: HomeKit has no pH type; the "°C" reading *is* the pH |
+| pH | Humidity sensor | **Workaround**: HomeKit has no pH type; the "%" reading is **pH × 10** (81% = pH 8.1), matching the setpoint slider convention. (Not a temperature sensor — that polluted the room's temperature range.) |
 | ORP | Light sensor | **Workaround**: the "lux" reading *is* the ORP in mV |
 
 **Pool vs spa temperature commands:** the set-temperature path was reverse-engineered from a single-body-of-water system (pool with spa jets, no separate spa circuit), so only the `_POOL` command variants are capture-verified. The `_SPA` variants exist in the client by naming pattern only — if you have a true pool/spa combo, capture the web app's requests when setting the SPA temperature (DevTools → Network → `send`) and open an issue so they can be verified.

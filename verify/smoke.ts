@@ -18,6 +18,7 @@ import { SwitchAccessory } from '../src/accessories/switchAccessory';
 import { LightAccessory } from '../src/accessories/lightAccessory';
 import { SteppedFanAccessory } from '../src/accessories/steppedFanAccessory';
 import { ChemistrySensorAccessory } from '../src/accessories/chemistrySensorAccessory';
+import { GasHeaterAccessory } from '../src/accessories/gasHeaterAccessory';
 
 const fixtures = JSON.parse(readFileSync(join(__dirname, 'fixtures.json'), 'utf8'));
 const state: InsnrgStateMap = parseGetAll(fixtures.getallResponse);
@@ -31,6 +32,7 @@ class FakePlatformAccessory {
     return a;
   })();
   displayName = 'Test';
+  context: Record<string, unknown> = {};
   getService(s: unknown) { return this.acc.getService(s); }
   addService(ctor: unknown, name?: string, subtype?: string) {
     return this.acc.addService(new (ctor as new (n?: string, s?: string) => unknown)(name, subtype));
@@ -56,9 +58,10 @@ const fakePlatform = {
   },
   client: {
     setThermostatTemp: async () => {}, turnTheSwitch: async () => {},
-    changeLightMode: async () => {}, setPumpValue: async () => {}, setChemistry: async () => {},
+    changeLightMode: async () => {}, setPumpValue: async () => {}, setChemistry: async () => {}, setHeaterTemperature: async () => {},
   },
   requestRefreshSoon: () => {},
+  systemId: 'insnrg38182be7f8f0',
   sendSwitch: async () => {},
 } as never;
 
@@ -102,9 +105,12 @@ tryCase('Switch with timer sub-switch (MODE / Filter Pump)', () => {
   a.update(state['MODE']);
 });
 
-tryCase('Switch ON/OFF-only (GAS_HEATER)', () => {
-  const a = new SwitchAccessory(fakePlatform, acc(), 'GAS_HEATER', 'Gas Heater', false);
-  a.update(state['GAS_HEATER']);
+tryCase('Gas heater thermostat (off + on states)', () => {
+  const a = new GasHeaterAccessory(fakePlatform, acc(), 'GAS_HEATER', 'Gas Heater');
+  a.update(state['GAS_HEATER']); // OFF in fixture
+  const on = JSON.parse(JSON.stringify(state['GAS_HEATER']));
+  on.switchStatus = 'ON';
+  a.update(on);
 });
 
 tryCase('Light with mode switches', () => {

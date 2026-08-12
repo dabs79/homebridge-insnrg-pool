@@ -1,0 +1,101 @@
+import type { PlatformAccessory, Service } from 'homebridge';
+import type { InsnrgPlatform, InsnrgAccessoryHandler } from '../platform';
+import type { InsnrgDevice } from '../insnrg/parse';
+import { setRangeAndValue } from './hapRange';
+
+/**
+ * GAS_HEATER → HomeKit Thermostat.
+ *   Off/Heat        → verified setDeviceStatus path (with heaterAutoPump interlock)
+ *   TargetTemp      → web-app-derived setHeaterTemperature (pool), 10-40°C, 0.5° steps
+ *   CurrentTemp     → NOT exposed by any known endpoint yet; mirrors the target
+ *                     as a documented placeholder until the web app's "items"
+ *                     endpoint is captured and ported.
+ * The target isn't readable back either, so the last value set via HomeKit is
+ * persisted in accessory.context across restarts.
+ */
+export class GasHeaterAccessory implements InsnrgAccessoryHandler {
+  private readonly service: Service;
+  private device?: InsnrgDevice;
+
+  constructor(
+    private readonly platform: InsnrgPlatform,
+    private readonly accessory: PlatformAccessory,
+    private readonly key: string,
+    name: string,
+  ) {
+    const { Service, Characteristic } = platform;
+
+    // Migrate from the pre-v1.5 plain Switch on cached accessories.
+    for (const sub of ['main', 'timer']) {
+      const svc = accessory.getServiceById(Service.Switch, sub);
+      if (svc) accessory.removeService(svc);
+    }
+
+    this.service = accessory.getService(Service.Thermostat)
+      ?? accessory.addService(Service.Thermostat, name);
+    this.service.setCharacteristic(Characteristic.Name, name);
+
+    this.service.getCharacteristic(Characteristic.TargetHeatingCoolingState)
+      .setProps({
+        validValues: [
+          Characteristic.TargetHeatingCoolingState.OFF,
+          Characteristic.TargetHeatingCoolingState.HEAT,
+        ],
+      })
+      .onGet(() => this.hkTargetState())
+      .onSet(async (v) => {
+        const on = v === Characteristic.TargetHeatingCoolingState.HEAT;
+        await this.platform.sendSwitch(this.key, this.device?.deviceId ?? this.key, on ? 'ON' : 'OFF');
+      });
+
+    this.service.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
+      .onGet(() => this.hkCurrentState());
+
+    const target = this.service.getCharacteristic(Characteristic.TargetTemperature);
+    setRangeAndValue(target, 10, 40, 0.5, this.storedTarget());
+    target
+      .onGet(() => this.storedTarget())
+      .onSet(async (v) => {
+        const temp = Math.min(40, Math.max(10, Math.round(Number(v) * 2) / 2));
+        this.accessory.context.heaterTarget = temp;
+        this.platform.log.info(`→ ${this.key}: pool set temperature ${temp}°C (GASHEATER_SET_TEMP_POOL/SETTING_SET_POINT_POOL)`);
+        await this.platform.client.setHeaterTemperature(temp, 'pool', this.platform.systemId);
+        this.platform.requestRefreshSoon();
+      });
+
+    this.service.getCharacteristic(Characteristic.CurrentTemperature)
+      .setProps({ minValue: 0, maxValue: 50 })
+      .onGet(() => this.storedTarget()); // placeholder until "items" endpoint is ported
+
+    this.service.getCharacteristic(Characteristic.TemperatureDisplayUnits)
+      .updateValue(Characteristic.TemperatureDisplayUnits.CELSIUS);
+  }
+
+  private storedTarget(): number {
+    const t = this.accessory.context.heaterTarget;
+    return typeof t === 'number' && t >= 10 && t <= 40 ? t : 28;
+  }
+
+  private hkTargetState(): number {
+    const { Characteristic } = this.platform;
+    return this.device?.switchStatus === 'ON'
+      ? Characteristic.TargetHeatingCoolingState.HEAT
+      : Characteristic.TargetHeatingCoolingState.OFF;
+  }
+
+  private hkCurrentState(): number {
+    const { Characteristic } = this.platform;
+    return this.device?.switchStatus === 'ON'
+      ? Characteristic.CurrentHeatingCoolingState.HEAT
+      : Characteristic.CurrentHeatingCoolingState.OFF;
+  }
+
+  update(device: InsnrgDevice): void {
+    this.device = device;
+    const { Characteristic } = this.platform;
+    this.service.updateCharacteristic(Characteristic.TargetHeatingCoolingState, this.hkTargetState());
+    this.service.updateCharacteristic(Characteristic.CurrentHeatingCoolingState, this.hkCurrentState());
+    this.service.updateCharacteristic(Characteristic.TargetTemperature, this.storedTarget());
+    this.service.updateCharacteristic(Characteristic.CurrentTemperature, this.storedTarget());
+  }
+}

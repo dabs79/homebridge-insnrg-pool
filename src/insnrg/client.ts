@@ -17,7 +17,7 @@
  * NO homebridge imports in this directory — keep it unit-testable in isolation.
  */
 
-import { LOGIN_URL, CMD_URL, MODE_TO_CMD_TYPE, SwitchMode } from './constants';
+import { LOGIN_URL, CMD_URL, SEND_URL, MODE_TO_CMD_TYPE, SwitchMode } from './constants';
 import { InsnrgStateMap, parseGetAll } from './parse';
 
 export interface FetchResponseLike {
@@ -162,6 +162,39 @@ export class InsnrgClient {
       deviceId,
       userId: login.userId,
     }, 'Failed to set pump value');
+  }
+
+  /**
+   * Set the gas heater water temperature (pool or spa).
+   *
+   * NOT part of the HA reference — reverse-engineered from insnrgapp.com web
+   * app captures (DevTools, 2026-08-12) and verified against them by the
+   * harness. The web app fires TWO commands per update, mirrored here:
+   *   1. deviceType gas_heater,  cmd GASHEATER_SET_TEMP_<POOL|SPA>
+   *   2. deviceType chlorinator, cmd SETTING_SET_POINT_<POOL|SPA>
+   * Encoding: valArgument = [round(tempC * 2)]  (half-degree integers;
+   * 32->64, 34->68, 36->72 in the captures).
+   *
+   * The Authorization header format on this gateway is unconfirmed: we try the
+   * raw idToken first (matching the getall quirk) and fall back to Bearer.
+   */
+  async setHeaterTemperature(tempC: number, mode: 'pool' | 'spa', systemId: string): Promise<void> {
+    const login = await this.login();
+    const val = Math.round(tempC * 2);
+    const suffix = mode.toUpperCase();
+    const bodies = [
+      { systemId, deviceType: 'gas_heater', payloads: [{ cmd: `GASHEATER_SET_TEMP_${suffix}`, valArgument: [val] }] },
+      { systemId, deviceType: 'chlorinator', payloads: [{ cmd: `SETTING_SET_POINT_${suffix}`, valArgument: [val] }] },
+    ];
+    for (const body of bodies) {
+      let resp = await this.post(SEND_URL, { Authorization: login.idToken }, body);
+      if (resp.status === 401 || resp.status === 403) {
+        resp = await this.post(SEND_URL, { Authorization: `Bearer ${login.idToken}` }, body);
+      }
+      if (resp.status !== 200) {
+        throw new InsnrgPoolError(resp.status, `Failed to send ${body.payloads[0].cmd}`);
+      }
+    }
   }
 
   private async sendCmd(

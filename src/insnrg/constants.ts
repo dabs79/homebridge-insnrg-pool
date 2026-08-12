@@ -3,6 +3,10 @@
 export const LOGIN_URL = 'https://4rsb9rvte4.execute-api.us-east-2.amazonaws.com/prod/api/login';
 export const CMD_URL = 'https://4rsb9rvte4.execute-api.us-east-2.amazonaws.com/prod/api/cmd';
 
+/** Second gateway used by the insnrgapp.com WEB app (captured via DevTools,
+ *  2026-08-12): system-level commands like the gas heater temperature. */
+export const SEND_URL = 'https://95osjk2ux7.execute-api.us-east-2.amazonaws.com/prod/send';
+
 export type SwitchMode = 'ON' | 'OFF' | 'TIMER';
 
 export const MODE_TO_CMD_TYPE: Record<SwitchMode, string> = {

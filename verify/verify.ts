@@ -101,6 +101,29 @@ async function main() {
   await runCase('setLightMode', (c) => c.changeLightMode('Ocean', 'LIGHT_1'));
   await runCase('setPumpValue', (c) => c.setPumpValue('Medium', 'PUMP_SPEED'));
 
+  // --- web-app capture cases (no Python reference: verified against DevTools
+  //     captures from insnrgapp.com, 2026-08-12) ---
+  const SEND = 'https://95osjk2ux7.execute-api.us-east-2.amazonaws.com/prod/send';
+  const capturedCases: Array<{ temp: number; val: number }> = [
+    { temp: 32, val: 64 }, { temp: 34, val: 68 }, { temp: 36, val: 72 },
+  ];
+  for (const { temp, val } of capturedCases) {
+    const { fetch: f, requests } = makeRecordingFetch();
+    const c = new InsnrgClient('user@example.com', 'hunter2', f);
+    await c.setHeaterTemperature(temp, 'pool', 'insnrg38182be7f8f0');
+    const sends = requests.filter((r) => r.url === SEND);
+    const expected = [
+      { systemId: 'insnrg38182be7f8f0', deviceType: 'gas_heater', payloads: [{ cmd: 'GASHEATER_SET_TEMP_POOL', valArgument: [val] }] },
+      { systemId: 'insnrg38182be7f8f0', deviceType: 'chlorinator', payloads: [{ cmd: 'SETTING_SET_POINT_POOL', valArgument: [val] }] },
+    ];
+    if (sends.length !== 2 || canon(sends.map((r) => r.body)) !== canon(expected)) {
+      failures.push(`setHeaterTemperature(${temp}) bodies differ\n  expect: ${canon(expected)}\n  got: ${canon(sends.map((r) => r.body))}`);
+    } else {
+      passed++;
+      console.log(`  \u2713 setHeaterTemperature(${temp}\u00b0C) matches captured payloads (valArgument [${val}])`);
+    }
+  }
+
   // --- result-shape cases ---
   const pySerial = pyOut.cases['testCredentials'].result;
   const tsSerial = creds === false ? false : (creds as { serial: string | null }).serial ?? 'DEMO';

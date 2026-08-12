@@ -13,6 +13,7 @@ import { SwitchAccessory } from './accessories/switchAccessory';
 import { LightAccessory } from './accessories/lightAccessory';
 import { SteppedFanAccessory } from './accessories/steppedFanAccessory';
 import { ChemistrySensorAccessory } from './accessories/chemistrySensorAccessory';
+import { GasHeaterAccessory } from './accessories/gasHeaterAccessory';
 
 export interface InsnrgAccessoryHandler {
   update(device: InsnrgDevice, state: InsnrgStateMap): void;
@@ -30,6 +31,9 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   private readonly cached = new Map<string, PlatformAccessory>();
   private readonly handlers = new Map<string, InsnrgAccessoryHandler>();
   private serial = 'UNKNOWN';
+
+  /** System serial from login — the systemId used by the /prod/send gateway. */
+  get systemId(): string { return this.serial; }
   private pollTimer?: NodeJS.Timeout;
   private refreshTimer?: NodeJS.Timeout;
   private polling = false;
@@ -162,12 +166,13 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   }
 
   private planFor(key: string, device: InsnrgDevice):
-    | { kind: 'thermostat' | 'switch' | 'light' | 'steppedFan' | 'chemistry' }
+    | { kind: 'thermostat' | 'switch' | 'light' | 'steppedFan' | 'chemistry' | 'gasHeater' }
     | null {
     if (CLIMATE_KEYS.includes(key)) return { kind: 'thermostat' };
     if (key === 'PH' || key === 'ORP') {
       return this.cfg.exposeChemistrySensors ? { kind: 'chemistry' } : null;
     }
+    if (key === 'GAS_HEATER') return { kind: 'gasHeater' };
     if (SWITCH_KEYS.includes(key)) return { kind: 'switch' };
     if (TIMER_KEYS.includes(key)) return this.cfg.exposeTimers ? { kind: 'switch' } : null;
     if (device.type === 'LIGHT') return { kind: 'light' };
@@ -220,6 +225,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
 
     switch (plan.kind) {
       case 'thermostat': return new ThermostatAccessory(this, accessory, key, name);
+      case 'gasHeater': return new GasHeaterAccessory(this, accessory, key, name);
       case 'switch': {
         // Timer (TimerOn) support = the device carries a ToggleController in the
         // payload (toggleStatus '' means none — e.g. GAS_HEATER, TIMERS).

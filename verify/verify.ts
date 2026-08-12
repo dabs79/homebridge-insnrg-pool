@@ -65,9 +65,30 @@ function compareStateMaps(py: Record<string, Record<string, unknown>>, ts: Recor
   }
 }
 
+/** Find a working Python 3 across platforms: Linux/macOS use python3, Windows
+ *  installs answer to python or the py launcher (python3 there is a Microsoft
+ *  Store decoy alias that exits with status 9009). */
+function resolvePython(): { cmd: string; baseArgs: string[] } {
+  const candidates: Array<{ cmd: string; baseArgs: string[] }> = [
+    { cmd: 'python3', baseArgs: [] },
+    { cmd: 'python', baseArgs: [] },
+    { cmd: 'py', baseArgs: ['-3'] },
+  ];
+  for (const c of candidates) {
+    try {
+      const v = execFileSync(c.cmd, [...c.baseArgs, '--version'], { encoding: 'utf8', stdio: 'pipe' });
+      if (/Python 3/.test(v)) return c;
+    } catch { /* try next */ }
+  }
+  console.error('No Python 3 interpreter found (tried python3, python, py -3).');
+  console.error('Install Python 3 from https://www.python.org/downloads/ and re-run npm run verify.');
+  process.exit(2);
+}
+
 async function main() {
+  const py = resolvePython();
   const pyOut = JSON.parse(
-    execFileSync('python3', [join(here, 'reference_cases.py')], { encoding: 'utf8' }),
+    execFileSync(py.cmd, [...py.baseArgs, join(here, 'reference_cases.py')], { encoding: 'utf8' }),
   ) as { cases: Record<string, { requests: RecordedRequest[]; result: unknown }> };
 
   const failures: string[] = [];

@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/homebridge-insnrg-pool)](https://www.npmjs.com/package/homebridge-insnrg-pool)
 [![npm downloads](https://img.shields.io/npm/dt/homebridge-insnrg-pool)](https://www.npmjs.com/package/homebridge-insnrg-pool)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-ff69b4)](https://github.com/sponsors/dabs79)
 
 
 Homebridge plugin for **INSNRG (Vi / Hub) pool equipment**, bridging the INSNRG **cloud** API into Apple HomeKit: pool/spa heating, spa mode, filter mode, outlets, valves, heat-pump/gas contacts, pool light (with colour modes), pump speed, chlorinator level, and pH/ORP readouts.

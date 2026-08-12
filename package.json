@@ -47,5 +47,9 @@
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
-  ]
+  ],
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/dabs79"
+  }
 }

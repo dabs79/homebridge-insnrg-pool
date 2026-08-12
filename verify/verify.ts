@@ -124,6 +124,21 @@ async function main() {
     }
   }
 
+  {
+    const { fetch: f, requests } = makeRecordingFetch();
+    const c = new InsnrgClient('user@example.com', 'hunter2', f);
+    await c.fetchSystemValues('insnrg38182be7f8f0');
+    const ITEMS = 'https://q5nhxjkqu4.execute-api.us-east-2.amazonaws.com/prod/items';
+    const items = requests.filter((r) => r.url === ITEMS);
+    const expectedBody = { systemId: 'insnrg38182be7f8f0', index: 'getSystemValuesBySystemIdByIsLive', isLive: 0, operator: 'gt' };
+    if (items.length !== 1 || canon(items[0].body) !== canon(expectedBody)) {
+      failures.push(`fetchSystemValues body differs\n  expect: ${canon(expectedBody)}\n  got: ${canon(items.map((r) => r.body))}`);
+    } else {
+      passed++;
+      console.log('  \u2713 fetchSystemValues matches captured /prod/items request');
+    }
+  }
+
   // --- result-shape cases ---
   const pySerial = pyOut.cases['testCredentials'].result;
   const tsSerial = creds === false ? false : (creds as { serial: string | null }).serial ?? 'DEMO';

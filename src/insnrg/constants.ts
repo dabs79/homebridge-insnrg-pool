@@ -7,6 +7,10 @@ export const CMD_URL = 'https://4rsb9rvte4.execute-api.us-east-2.amazonaws.com/p
  *  2026-08-12): system-level commands like the gas heater temperature. */
 export const SEND_URL = 'https://95osjk2ux7.execute-api.us-east-2.amazonaws.com/prod/send';
 
+/** Third gateway used by the insnrgapp.com web app (captured 2026-08-12):
+ *  system values query — the source of the live water temperature. */
+export const ITEMS_URL = 'https://q5nhxjkqu4.execute-api.us-east-2.amazonaws.com/prod/items';
+
 export type SwitchMode = 'ON' | 'OFF' | 'TIMER';
 
 export const MODE_TO_CMD_TYPE: Record<SwitchMode, string> = {

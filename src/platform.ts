@@ -40,6 +40,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   private prunedOnce = false;
   private consecutiveFailures = 0;
   private readonly skipLogged = new Set<string>();
+  private itemsProbeDone = false;
   private lastState?: InsnrgStateMap;
   private pumpOffTimer?: NodeJS.Timeout;
 
@@ -116,6 +117,16 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
         this.log.info(`[debug] getall raw: ${JSON.stringify(rawResponse)}`);
       }
       this.applyState(state);
+      if (this.cfg.debug && !this.itemsProbeDone) {
+        this.itemsProbeDone = true;
+        try {
+          const values = await this.client.fetchSystemValues(this.serial);
+          const text = JSON.stringify(values);
+          this.log.info(`[debug] items raw (${text.length} chars): ${text.slice(0, 60000)}`);
+        } catch (e) {
+          this.log.warn(`[debug] items probe failed: ${e instanceof Error ? e.message : e}`);
+        }
+      }
     } catch (e) {
       this.consecutiveFailures++;
       const msg = e instanceof Error ? e.message : String(e);

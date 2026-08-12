@@ -17,7 +17,7 @@
  * NO homebridge imports in this directory — keep it unit-testable in isolation.
  */
 
-import { LOGIN_URL, CMD_URL, SEND_URL, MODE_TO_CMD_TYPE, SwitchMode } from './constants';
+import { LOGIN_URL, CMD_URL, SEND_URL, ITEMS_URL, MODE_TO_CMD_TYPE, SwitchMode } from './constants';
 import { InsnrgStateMap, parseGetAll } from './parse';
 
 export interface FetchResponseLike {
@@ -200,6 +200,31 @@ export class InsnrgClient {
         throw new InsnrgPoolError(resp.status, `Failed to send ${body.payloads[0].cmd}`);
       }
     }
+  }
+
+  /**
+   * Fetch the web app's "system values" (captured 2026-08-12: the query the
+   * insnrgapp.com dashboard runs to show live values incl. water temperature).
+   * Body reproduced verbatim from the capture; response shape is NOT yet
+   * known, so this returns the raw JSON — used as a debug probe until the
+   * shape is confirmed and parsing can be written from evidence.
+   */
+  async fetchSystemValues(systemId: string): Promise<unknown> {
+    const login = await this.login();
+    const body = {
+      systemId,
+      index: 'getSystemValuesBySystemIdByIsLive',
+      isLive: 0,
+      operator: 'gt',
+    };
+    let resp = await this.post(ITEMS_URL, { Authorization: login.idToken }, body);
+    if (resp.status === 401 || resp.status === 403) {
+      resp = await this.post(ITEMS_URL, { Authorization: `Bearer ${login.idToken}` }, body);
+    }
+    if (resp.status !== 200) {
+      throw new InsnrgPoolError(resp.status, 'Failed to fetch system values');
+    }
+    return resp.json();
   }
 
   private async sendCmd(

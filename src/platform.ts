@@ -143,18 +143,17 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
       handler.update(device, state);
     }
 
-    // One-shot prune: after the first successful poll, drop cached accessories
-    // that no longer map to anything (device removed or feature flag disabled).
+    // Devices are reported CONDITIONALLY by the cloud (e.g. the chlorinator
+    // level only while the cell runs), so absence at startup does NOT mean
+    // removed — never auto-prune. Genuinely dead accessories can be removed
+    // via the Homebridge UI (Settings → Remove Single Accessory).
     if (!this.prunedOnce) {
       this.prunedOnce = true;
-      const stale: PlatformAccessory[] = [];
-      for (const [uuid, acc] of this.cached) {
-        if (!desired.has(uuid)) stale.push(acc);
-      }
-      if (stale.length) {
-        this.log.info(`Removing ${stale.length} stale accessorie(s): ${stale.map(a => a.displayName).join(', ')}`);
-        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, stale);
-        for (const a of stale) this.cached.delete(a.UUID);
+      const unmatched = [...this.cached.entries()]
+        .filter(([uuid]) => !desired.has(uuid))
+        .map(([, a]) => a.displayName);
+      if (unmatched.length) {
+        this.log.info(`Cached accessorie(s) not in this poll (kept — may be reported conditionally): ${unmatched.join(', ')}`);
       }
     }
   }
@@ -185,6 +184,16 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
       return { kind: 'steppedFan' };
     }
     // LIGHT_MODE pseudo-device is consumed by the light accessory, not exposed on its own.
+    if (key === 'LIGHT_MODE') return null;
+    // Fallback: the real cloud payload carries a type field on every device
+    // (e.g. GAS_HEATER has type SWITCH but is absent from the reference's key
+    // lists). Trust the type so new/renamed devices appear automatically.
+    if (device.type === 'SWITCH') return { kind: 'switch' };
+    if (device.type && !this.skipLogged.has(key)) {
+      this.skipLogged.add(key);
+      this.log.info(`Unmapped device "${device.name}" (${key}, type ${device.type}) — not exposed. `
+        + 'Send a debug dump if it should be.');
+    }
     return null;
   }
 
@@ -209,7 +218,9 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
     switch (plan.kind) {
       case 'thermostat': return new ThermostatAccessory(this, accessory, key, name);
       case 'switch': {
-        const supportsTimer = !ON_OFF_ONLY_KEYS.has(key);
+        // Timer (TimerOn) support = the device carries a ToggleController in the
+        // payload (toggleStatus '' means none — e.g. GAS_HEATER, TIMERS).
+        const supportsTimer = !ON_OFF_ONLY_KEYS.has(key) && device.toggleStatus !== '';
         return new SwitchAccessory(this, accessory, key, name, supportsTimer);
       }
       case 'light': return new LightAccessory(this, accessory, key, name);

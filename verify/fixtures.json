@@ -1,95 +1,352 @@
 {
   "loginResponse": {
-    "auth": { "idToken": "TESTTOKEN123" },
-    "user": { "userId": "user-abc-001" },
-    "devices": [ { "serial": "VI0012345" } ]
+    "auth": {
+      "idToken": "TESTTOKEN123"
+    },
+    "user": {
+      "userId": "user-abc-001"
+    },
+    "devices": [
+      {
+        "serial": "VI0012345"
+      }
+    ]
   },
   "getallResponse": [
     {
-      "deviceId": "POOL_CONTROL", "name": "Pool", "type": ["POOL_CONTROL"],
+      "cmd": [
+        "MODE"
+      ],
+      "name": "Filter Pump",
+      "type": [
+        "SWITCH"
+      ],
+      "deviceId": "MODE",
+      "supportedController": [
+        "PowerController",
+        "ToggleController"
+      ],
       "properties": [
-        { "namespace": "Alexa.ThermostatController", "value": { "value": 28, "valueMin": 10, "valueMax": 40, "ggPoolSetTemperature": 28 } },
-        { "namespace": "Alexa.TemperatureSensor", "value": { "value": 24.5 } }
+        {
+          "namespace": "Alexa.PowerController",
+          "name": "powerState",
+          "value": "OFF",
+          "ggValue": null,
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 0
+        },
+        {
+          "namespace": "Alexa.ToggleController",
+          "name": "toggleState",
+          "value": "OFF",
+          "instance": "MODE-toggle-instance",
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 0
+        }
       ]
     },
     {
-      "deviceId": "SPA_CONTROL", "name": "Spa", "type": ["SPA_CONTROL"],
+      "cmd": [],
+      "name": "All Auto",
+      "type": [
+        "SWITCH"
+      ],
+      "deviceId": "TIMERS",
+      "supportedController": [
+        "PowerController"
+      ],
       "properties": [
-        { "namespace": "Alexa.ThermostatController", "value": { "value": 36, "valueMin": 10, "valueMax": 40 } },
-        { "namespace": "Alexa.TemperatureSensor", "value": { "value": 33.1 } }
+        {
+          "namespace": "Alexa.PowerController",
+          "name": "powerState",
+          "value": "OFF",
+          "ggValue": null,
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 0
+        }
       ]
     },
     {
-      "deviceId": "PH", "name": "Current pH", "type": ["PH"],
+      "cmd": [],
+      "name": "pH Sensor",
+      "type": [
+        "THERMOSTAT",
+        "TEMPERATURE_SENSOR"
+      ],
+      "deviceId": "PH",
+      "supportedController": [
+        "ThermostatController",
+        "TemperatureSensor"
+      ],
       "properties": [
-        { "namespace": "Alexa.TemperatureSensor", "value": { "value": "7.2" } },
-        { "namespace": "Alexa.ThermostatController", "value": { "setPoint": 7.4, "valueMin": 6.8, "valueMax": 7.8 } }
+        {
+          "namespace": "Alexa.ThermostatController",
+          "name": "targetSetpoint",
+          "value": {
+            "value": 8,
+            "setPoint": 7.7,
+            "valueMax": 7.8,
+            "valueMin": 7
+          },
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 0
+        },
+        {
+          "namespace": "Alexa.TemperatureSensor",
+          "name": "ph",
+          "value": {
+            "value": 8,
+            "setPoint": 7.7
+          },
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 1000
+        }
       ]
     },
     {
-      "deviceId": "ORP", "name": "Current ORP", "type": ["ORP"],
+      "cmd": [],
+      "name": "ORP Sensor",
+      "type": [
+        "THERMOSTAT",
+        "TEMPERATURE_SENSOR"
+      ],
+      "deviceId": "ORP",
+      "supportedController": [
+        "ThermostatController",
+        "TemperatureSensor"
+      ],
       "properties": [
-        { "namespace": "Alexa.TemperatureSensor", "value": { "value": "650" } },
-        { "namespace": "Alexa.ThermostatController", "value": { "setPoint": 700, "valueMin": 200, "valueMax": 900 } }
+        {
+          "namespace": "Alexa.ThermostatController",
+          "name": "targetSetpoint",
+          "value": {
+            "value": 680,
+            "setPoint": 680,
+            "valueMax": 750,
+            "valueMin": 550
+          },
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 0
+        },
+        {
+          "namespace": "Alexa.TemperatureSensor",
+          "name": "orp",
+          "value": {
+            "value": 680,
+            "setPoint": 680
+          },
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 1000
+        }
       ]
     },
     {
-      "deviceId": "SPA", "name": "SPA", "type": ["SPA"],
-      "properties": [ { "namespace": "Alexa.PowerController", "value": "OFF" } ]
-    },
-    {
-      "deviceId": "MODE", "name": "Filter Mode", "type": ["MODE"],
+      "cmd": [],
+      "name": "Timer 1 Status",
+      "type": [
+        "SWITCH"
+      ],
+      "deviceId": "TIMER_1_STATUS",
+      "supportedController": [
+        "PowerController"
+      ],
       "properties": [
-        { "namespace": "Alexa.PowerController", "value": "ON" },
-        { "namespace": "Alexa.ToggleController", "value": "OFF" }
+        {
+          "namespace": "Alexa.PowerController",
+          "name": "powerState",
+          "value": "ON",
+          "ggValue": "ON",
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 0
+        }
       ]
     },
     {
-      "deviceId": "TIMERS", "name": "All Auto", "type": ["TIMERS"],
-      "properties": [ { "namespace": "Alexa.PowerController", "value": "ON" } ]
-    },
-    {
-      "deviceId": "OUTLET_1", "name": "Waterfall", "type": ["OUTLET"],
+      "cmd": [],
+      "name": "Timer 1 Chlorinator",
+      "type": [
+        "SWITCH"
+      ],
+      "deviceId": "TIMER_1_CHL",
+      "supportedController": [
+        "PowerController"
+      ],
       "properties": [
-        { "namespace": "Alexa.PowerController", "value": "OFF" },
-        { "namespace": "Alexa.ToggleController", "value": "ON" }
+        {
+          "namespace": "Alexa.PowerController",
+          "name": "powerState",
+          "value": "ON",
+          "ggValue": "ON",
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 0
+        }
       ]
     },
     {
-      "deviceId": "VALVE_HUB_2", "name": "Feature Valve", "type": ["VALVE"],
+      "cmd": [
+        "GAS_HEATER"
+      ],
+      "name": "Gas Heater",
+      "type": [
+        "SWITCH"
+      ],
+      "deviceId": "GAS_HEATER",
+      "supportedController": [
+        "PowerController"
+      ],
       "properties": [
-        { "namespace": "Alexa.PowerController", "value": "OFF" },
-        { "namespace": "Alexa.ToggleController", "value": "OFF" }
+        {
+          "namespace": "Alexa.PowerController",
+          "name": "powerState",
+          "value": "OFF",
+          "ggValue": "OFF",
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 0
+        }
       ]
     },
     {
-      "deviceId": "VF_CONTACT_1", "name": "Heat Pump", "type": ["VF_CONTACT"],
+      "cmd": [
+        "VALVE_1"
+      ],
+      "name": "SPA JETS",
+      "type": [
+        "SWITCH"
+      ],
+      "deviceId": "VALVE_1",
+      "supportedController": [
+        "PowerController",
+        "ToggleController"
+      ],
       "properties": [
-        { "namespace": "Alexa.PowerController", "value": "ON" },
-        { "namespace": "Alexa.ToggleController", "value": "OFF" }
+        {
+          "namespace": "Alexa.PowerController",
+          "name": "powerState",
+          "value": "OFF",
+          "ggValue": "OFF",
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 0
+        },
+        {
+          "namespace": "Alexa.ToggleController",
+          "name": "toggleState",
+          "value": "OFF",
+          "instance": "VALVE_1-toggle-instance",
+          "timeOfSample": "2026-08-12T01:03:30.327Z",
+          "uncertaintyInMilliseconds": 0
+        }
       ]
     },
     {
-      "deviceId": "TIMER_1_STATUS", "name": "Timer 1", "type": ["TIMER"],
-      "properties": [ { "namespace": "Alexa.PowerController", "value": "ON" } ]
-    },
-    {
-      "deviceId": "LIGHT_1", "name": "Pool Light", "type": ["LIGHT"],
-      "options": ["Ocean", "Sunset", "Party", "White"],
+      "deviceId": "POOL_CONTROL",
+      "name": "Pool",
+      "type": [
+        "POOL_CONTROL"
+      ],
       "properties": [
-        { "namespace": "Alexa.PowerController", "value": "OFF" },
-        { "namespace": "Alexa.ModeController", "value": "Ocean" }
+        {
+          "namespace": "Alexa.ThermostatController",
+          "value": {
+            "value": 28,
+            "valueMin": 10,
+            "valueMax": 40,
+            "ggPoolSetTemperature": 28
+          }
+        },
+        {
+          "namespace": "Alexa.TemperatureSensor",
+          "value": {
+            "value": 24.5
+          }
+        }
       ]
     },
     {
-      "deviceId": "PUMP_SPEED", "name": "Pump", "type": ["PUMP_SPEED"],
-      "options": ["Low", "Medium", "High"],
-      "properties": [ { "namespace": "Alexa.ModeController", "value": "Medium" } ]
+      "deviceId": "SPA_CONTROL",
+      "name": "Spa",
+      "type": [
+        "SPA_CONTROL"
+      ],
+      "properties": [
+        {
+          "namespace": "Alexa.ThermostatController",
+          "value": {
+            "value": 36,
+            "valueMin": 10,
+            "valueMax": 40
+          }
+        },
+        {
+          "namespace": "Alexa.TemperatureSensor",
+          "value": {
+            "value": 33.1
+          }
+        }
+      ]
     },
     {
-      "deviceId": "CHLORINATOR", "name": "Chlorinator", "type": ["CHLORINATOR"],
-      "options": ["1", "2", "3", "4", "5", "6", "7", "8"],
-      "properties": [ { "namespace": "Alexa.ModeController", "value": "5" } ]
+      "deviceId": "LIGHT_1",
+      "name": "Pool Light",
+      "type": [
+        "LIGHT"
+      ],
+      "options": [
+        "Ocean",
+        "Sunset",
+        "Party",
+        "White"
+      ],
+      "properties": [
+        {
+          "namespace": "Alexa.PowerController",
+          "value": "OFF"
+        },
+        {
+          "namespace": "Alexa.ModeController",
+          "value": "Ocean"
+        }
+      ]
+    },
+    {
+      "deviceId": "PUMP_SPEED",
+      "name": "Pump",
+      "type": [
+        "PUMP_SPEED"
+      ],
+      "options": [
+        "Low",
+        "Medium",
+        "High"
+      ],
+      "properties": [
+        {
+          "namespace": "Alexa.ModeController",
+          "value": "Medium"
+        }
+      ]
+    },
+    {
+      "deviceId": "CHLORINATOR",
+      "name": "Chlorinator",
+      "type": [
+        "CHLORINATOR"
+      ],
+      "options": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "properties": [
+        {
+          "namespace": "Alexa.ModeController",
+          "value": "5"
+        }
+      ]
     }
   ]
 }

@@ -92,14 +92,14 @@ tryCase('Thermostat with missing/NaN temps', () => {
   a.update(bad);
 });
 
-tryCase('Switch with timer sub-switch (OUTLET_1)', () => {
-  const a = new SwitchAccessory(fakePlatform, acc(), 'OUTLET_1', 'Waterfall', true);
-  a.update(state['OUTLET_1']);
+tryCase('Switch with timer sub-switch (MODE / Filter Pump)', () => {
+  const a = new SwitchAccessory(fakePlatform, acc(), 'MODE', 'Filter Pump', true);
+  a.update(state['MODE']);
 });
 
-tryCase('Switch ON/OFF-only (SPA)', () => {
-  const a = new SwitchAccessory(fakePlatform, acc(), 'SPA', 'SPA', false);
-  a.update(state['SPA']);
+tryCase('Switch ON/OFF-only (GAS_HEATER)', () => {
+  const a = new SwitchAccessory(fakePlatform, acc(), 'GAS_HEATER', 'Gas Heater', false);
+  a.update(state['GAS_HEATER']);
 });
 
 tryCase('Light with mode switches', () => {

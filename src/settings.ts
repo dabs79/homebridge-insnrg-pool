@@ -8,7 +8,7 @@ export interface InsnrgPlatformConfig {
   password?: string;
   pollIntervalSeconds?: number;   // default 300, min 60 (cloud API — be polite)
   setpointMin?: number;           // sanitiser fallback when device reports implausible range
-  setpointMax?: number;
+  setpointMax?: number;           // capped at 38 (Apple HAP TargetTemperature limit)
   exposeTimerSwitches?: boolean;  // extra "Timer" switch per device that supports TimerOn
   exposeTimers?: boolean;         // the 4 schedule-timer enable switches (clutter, default off)
   exposeLightModes?: boolean;     // one switch per light colour mode

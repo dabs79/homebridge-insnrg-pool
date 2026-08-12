@@ -53,7 +53,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
     this.cfg = {
       pollIntervalSeconds: Math.max(60, config.pollIntervalSeconds ?? 300),
       setpointMin: config.setpointMin ?? 10,
-      setpointMax: config.setpointMax ?? 40,
+      setpointMax: Math.min(38, config.setpointMax ?? 38),
       exposeTimerSwitches: config.exposeTimerSwitches ?? false,
       exposeTimers: config.exposeTimers ?? false,
       exposeLightModes: config.exposeLightModes ?? false,

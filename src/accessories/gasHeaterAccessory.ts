@@ -52,11 +52,13 @@ export class GasHeaterAccessory implements InsnrgAccessoryHandler {
       .onGet(() => this.hkCurrentState());
 
     const target = this.service.getCharacteristic(Characteristic.TargetTemperature);
-    setRangeAndValue(target, 10, 40, 0.5, this.storedTarget());
+    // Apple HAP spec caps TargetTemperature at 38 C (the app allows 40; out-of-spec
+    // props make Apple clients reject the whole bridge, so we comply).
+    setRangeAndValue(target, 10, 38, 0.5, this.storedTarget());
     target
       .onGet(() => this.storedTarget())
       .onSet(async (v) => {
-        const temp = Math.min(40, Math.max(10, Math.round(Number(v) * 2) / 2));
+        const temp = Math.min(38, Math.max(10, Math.round(Number(v) * 2) / 2));
         this.accessory.context.heaterTarget = temp;
         this.platform.log.info(`→ ${this.key}: pool set temperature ${temp}°C (GASHEATER_SET_TEMP_POOL/SETTING_SET_POINT_POOL)`);
         await this.platform.client.setHeaterTemperature(temp, 'pool', this.platform.systemId);
@@ -73,7 +75,7 @@ export class GasHeaterAccessory implements InsnrgAccessoryHandler {
 
   private storedTarget(): number {
     const t = this.accessory.context.heaterTarget;
-    return typeof t === 'number' && t >= 10 && t <= 40 ? t : 28;
+    return typeof t === 'number' && t >= 10 && t <= 38 ? t : 28;
   }
 
   private hkTargetState(): number {

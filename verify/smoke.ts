@@ -25,7 +25,38 @@ const state: InsnrgStateMap = parseGetAll(fixtures.getallResponse);
 
 // Minimal PlatformAccessory shim over a hap Accessory.
 const hapWarnings: string[] = [];
+const builtAccessories: FakePlatformAccessory[] = [];
+
+/** Apple-defined valid ranges; advertising outside these makes Apple clients
+ *  reject the entire bridge (learned the hard way in v1.5.x). */
+const APPLE_RANGES: Record<string, [number, number]> = {
+  TargetTemperature: [10, 38],
+  CurrentTemperature: [-270, 100],
+  RotationSpeed: [0, 100],
+  CurrentAmbientLightLevel: [0.0001, 100000],
+  TargetRelativeHumidity: [0, 100],
+};
+function checkAppleRanges(): string[] {
+  const problems: string[] = [];
+  for (const fpa of builtAccessories) {
+    for (const svc of (fpa as unknown as { services(): Array<{ characteristics: Array<{ displayName: string; props: { minValue?: number; maxValue?: number } }> }> }).services()) {
+      for (const ch of svc.characteristics) {
+        const range = APPLE_RANGES[ch.displayName.replace(/ /g, '')];
+        if (!range) continue;
+        const { minValue, maxValue } = ch.props;
+        if (typeof minValue === 'number' && minValue < range[0]) {
+          problems.push(`${ch.displayName}: minValue ${minValue} below Apple minimum ${range[0]}`);
+        }
+        if (typeof maxValue === 'number' && maxValue > range[1]) {
+          problems.push(`${ch.displayName}: maxValue ${maxValue} above Apple maximum ${range[1]}`);
+        }
+      }
+    }
+  }
+  return problems;
+}
 class FakePlatformAccessory {
+  services() { return this.acc.services; }
   private acc = (() => {
     const a = new hap.Accessory('Test', hap.uuid.generate(`test-${Math.random()}`));
     a.on('characteristic-warning', (w: { message: string }) => hapWarnings.push(w.message));
@@ -52,7 +83,7 @@ const fakePlatform = {
     error: (m: string) => logged.push(`ERROR: ${m}`),
   },
   cfg: {
-    pollIntervalSeconds: 300, setpointMin: 10, setpointMax: 40,
+    pollIntervalSeconds: 300, setpointMin: 10, setpointMax: 38,
     exposeTimerSwitches: true, exposeTimers: true, exposeLightModes: true,
     exposeChemistrySensors: true, exposeChlorinator: true, debug: false,
   },
@@ -76,7 +107,11 @@ function tryCase(name: string, fn: () => void) {
   }
 }
 
-function acc() { return new FakePlatformAccessory() as never; }
+function acc() {
+  const a = new FakePlatformAccessory();
+  builtAccessories.push(a);
+  return a as never;
+}
 
 tryCase('Thermostat POOL_CONTROL (normal range)', () => {
   const a = new ThermostatAccessory(fakePlatform, acc(), 'POOL_CONTROL', 'Pool');
@@ -167,6 +202,12 @@ tryCase('ORP thermostat (real range 550-750) + blank reading + missing range', (
 });
 
 console.log('');
+const specProblems = checkAppleRanges();
+if (specProblems.length) {
+  failures += specProblems.length;
+  console.error(`  \u2717 ${specProblems.length} Apple-spec range violation(s) — these make Apple clients reject the whole bridge:`);
+  for (const p of specProblems) console.error(`      ${p}`);
+}
 if (hapWarnings.length) {
   failures += hapWarnings.length;
   console.error(`  ✗ ${hapWarnings.length} HAP characteristic warning(s) — these spam user logs and indicate ordering bugs:`);

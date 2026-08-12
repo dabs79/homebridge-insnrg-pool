@@ -44,8 +44,8 @@
       "setpointMax": {
         "title": "Heater Setpoint Maximum (\u00b0C)",
         "type": "number",
-        "default": 40,
-        "description": "Fallback upper limit for the pool/spa thermostat, used when the cloud reports an implausible range."
+        "default": 38,
+        "description": "Fallback upper limit for the pool/spa thermostat. Capped at 38 - Apple's HomeKit spec limit for thermostat targets."
       },
       "exposeTimerSwitches": {
         "title": "Expose Timer-mode switches",

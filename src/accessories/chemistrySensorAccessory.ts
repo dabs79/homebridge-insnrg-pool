@@ -1,28 +1,29 @@
 import type { PlatformAccessory, Service } from 'homebridge';
 import type { InsnrgPlatform, InsnrgAccessoryHandler } from '../platform';
 import type { InsnrgDevice } from '../insnrg/parse';
-import { setRangeAndValue } from './hapRange';
 
 /**
- * PH / ORP → HomeKit Thermostat, since the cloud models them exactly that way
- * (ThermostatController with setPoint/valueMin/valueMax) and they are settable
- * via the verified setChemistry command.
+ * PH / ORP → Apple-spec-safe reading + setpoint control.
  *
- *   CurrentTemperature = live reading (pH units, or ORP in mV)
- *   TargetTemperature  = setpoint → setChemistry on change
+ * IMPORTANT LESSON (v1.6.0): modelling these as Thermostats with out-of-spec
+ * TargetTemperature ranges (pH 7.0-7.8, ORP 550-750 vs Apple's allowed 10-38)
+ * made Apple clients reject the ENTIRE bridge — every accessory unresponsive /
+ * missing. All characteristic props must stay within Apple's defined ranges.
  *
- * The "°" is cosmetic — HomeKit has no pH/mV characteristic. Ranges come from
- * the device (sanitised, with sane fallbacks). Apple Home renders the pH dial
- * fine; the ORP dial (550–750) works in HAP but its rendering in Apple Home is
- * unverified — Eve renders both correctly.
+ * Model now:
+ *   Reading:  pH → TemperatureSensor (the "°" value IS the pH; 0-100 spec-ok)
+ *             ORP → LightSensor (the "lux" value IS the mV; spec-ok)
+ *   Setpoint: a Fan speed slider on the same tile (0-100%, spec-ok):
+ *             pH  slider = pH × 10   (77% = pH 7.7)
+ *             ORP slider = mV ÷ 10   (68% = 680 mV)
+ *             Changes send the verified setChemistry command, clamped to the
+ *             device-reported range.
  */
 export class ChemistrySensorAccessory implements InsnrgAccessoryHandler {
-  private readonly service: Service;
+  private readonly sensor: Service;
+  private readonly setter: Service;
   private device?: InsnrgDevice;
-  private min: number;
-  private max: number;
-  private readonly stepSize: number;
-  private propsApplied = false;
+  private readonly isPh: boolean;
 
   constructor(
     private readonly platform: InsnrgPlatform,
@@ -31,98 +32,97 @@ export class ChemistrySensorAccessory implements InsnrgAccessoryHandler {
     name: string,
   ) {
     const { Service, Characteristic } = platform;
-    const isPh = key === 'PH';
-    this.min = isPh ? 6.8 : 400;   // fallbacks if the cloud range is implausible
-    this.max = isPh ? 8.0 : 800;
-    this.stepSize = isPh ? 0.1 : 10;
+    this.isPh = key === 'PH';
 
-    // Migrate from the pre-v1.4 read-only sensor services on cached accessories.
-    for (const stale of [Service.TemperatureSensor, Service.LightSensor]) {
-      const svc = accessory.getService(stale);
-      if (svc) accessory.removeService(svc);
+    // Migrate away from earlier service shapes on cached accessories.
+    const staleThermo = accessory.getService(Service.Thermostat);
+    if (staleThermo) accessory.removeService(staleThermo);
+    if (this.isPh) {
+      const staleLux = accessory.getService(Service.LightSensor);
+      if (staleLux) accessory.removeService(staleLux);
+    } else {
+      const staleTemp = accessory.getService(Service.TemperatureSensor);
+      if (staleTemp) accessory.removeService(staleTemp);
     }
 
-    this.service = accessory.getService(Service.Thermostat)
-      ?? accessory.addService(Service.Thermostat, name);
-    this.service.setCharacteristic(Characteristic.Name, name);
+    if (this.isPh) {
+      this.sensor = accessory.getService(Service.TemperatureSensor)
+        ?? accessory.addService(Service.TemperatureSensor, name);
+      this.sensor.getCharacteristic(Characteristic.CurrentTemperature)
+        .setProps({ minValue: 0, maxValue: 14, minStep: 0.1 })
+        .onGet(() => this.reading());
+    } else {
+      this.sensor = accessory.getService(Service.LightSensor)
+        ?? accessory.addService(Service.LightSensor, name);
+      this.sensor.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
+        .setProps({ minValue: 0.0001, maxValue: 2000 })
+        .onGet(() => this.reading());
+    }
+    this.sensor.setCharacteristic(Characteristic.Name, name);
 
-    // Current reading: give the characteristic room for pH units or mV.
-    this.service.getCharacteristic(Characteristic.CurrentTemperature)
-      .setProps({ minValue: 0, maxValue: isPh ? 14 : 1000, minStep: this.stepSize })
-      .onGet(() => this.currentReading());
-
-    // Setpoint: pH/ORP ranges are DISJOINT from TargetTemperature's default
-    // 10-38, so use widen->set->narrow (setRangeAndValue) to avoid warnings.
-    const target = this.service.getCharacteristic(Characteristic.TargetTemperature);
-    setRangeAndValue(target, this.min, this.max, this.stepSize, (this.min + this.max) / 2);
-    target
-      .onGet(() => this.clamp(this.setpoint()))
+    const setterName = this.isPh ? 'pH Setpoint' : 'ORP Setpoint';
+    this.setter = accessory.getServiceById(Service.Fanv2, 'setpoint')
+      ?? accessory.addService(Service.Fanv2, setterName, 'setpoint');
+    this.setter.setCharacteristic(Characteristic.Name, setterName);
+    this.setter.getCharacteristic(Characteristic.Active)
+      .onGet(() => Characteristic.Active.ACTIVE)
+      .onSet((v) => {
+        if (v === Characteristic.Active.INACTIVE) {
+          setTimeout(() => this.setter.updateCharacteristic(Characteristic.Active, Characteristic.Active.ACTIVE), 500);
+        }
+      });
+    this.setter.getCharacteristic(Characteristic.RotationSpeed)
+      .setProps({ minValue: 0, maxValue: 100, minStep: 1 })
+      .onGet(() => this.setpointToSlider(this.setpoint()))
       .onSet(async (v) => {
-        const raw = Number(v);
-        const value = this.clamp(Math.round(raw / this.stepSize) * this.stepSize);
-        // Avoid float artefacts like 7.400000000000001 in the JSON body.
-        const chem = Number(value.toFixed(2));
+        const chem = this.clampToDeviceRange(this.sliderToSetpoint(Number(v)));
         this.platform.log.info(`→ ${this.key}: setpoint ${chem} (setChemistry)`);
         await this.platform.client.setChemistry(chem, this.device?.deviceId ?? this.key);
         this.platform.requestRefreshSoon();
       });
-
-    // Dosing runs automatically — modes are not controllable.
-    this.service.getCharacteristic(Characteristic.TargetHeatingCoolingState)
-      .updateValue(Characteristic.TargetHeatingCoolingState.AUTO);
-    this.service.getCharacteristic(Characteristic.TargetHeatingCoolingState)
-      .setProps({ validValues: [Characteristic.TargetHeatingCoolingState.AUTO] })
-      .onGet(() => Characteristic.TargetHeatingCoolingState.AUTO)
-      .onSet(() => { /* fixed */ });
-    this.service.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
-      .onGet(() => Characteristic.CurrentHeatingCoolingState.OFF);
-    this.service.getCharacteristic(Characteristic.TemperatureDisplayUnits)
-      .updateValue(Characteristic.TemperatureDisplayUnits.CELSIUS);
   }
 
-  private clamp(v: number): number {
-    if (!Number.isFinite(v)) return this.min;
-    return Math.min(this.max, Math.max(this.min, v));
-  }
-
-  private currentReading(): number {
+  private reading(): number {
     const raw = this.device?.temperatureSensorStatus?.value;
     const n = typeof raw === 'string' ? parseFloat(raw) : raw;
-    if (!Number.isFinite(n as number)) return this.min;
-    return Math.min(this.key === 'PH' ? 14 : 1000, Math.max(0, n as number));
+    const fallback = this.isPh ? 7 : 0.0001;
+    if (!Number.isFinite(n as number)) return fallback;
+    return this.isPh
+      ? Math.min(14, Math.max(0, n as number))
+      : Math.min(2000, Math.max(0.0001, n as number));
   }
 
   private setpoint(): number {
     const sp = this.device?.thermostatStatus?.setPoint;
-    return typeof sp === 'number' ? sp : (this.min + this.max) / 2;
+    return typeof sp === 'number' ? sp : (this.isPh ? 7.4 : 680);
   }
 
-  /** Sanitise the cloud-reported range; fall back on implausible values. */
-  private sanitiseRange(): { min: number; max: number } {
+  private setpointToSlider(sp: number): number {
+    const v = this.isPh ? sp * 10 : sp / 10;
+    return Math.min(100, Math.max(0, Math.round(v)));
+  }
+
+  private sliderToSetpoint(slider: number): number {
+    return this.isPh ? Number((slider / 10).toFixed(1)) : Math.round(slider) * 10;
+  }
+
+  private clampToDeviceRange(v: number): number {
     const t = this.device?.thermostatStatus;
-    const rMin = t?.valueMin;
-    const rMax = t?.valueMax;
-    const cap = this.key === 'PH' ? 14 : 1000;
-    const plausible = typeof rMin === 'number' && typeof rMax === 'number'
-      && Number.isFinite(rMin) && Number.isFinite(rMax)
-      && rMax > rMin && rMin >= 0 && rMax <= cap;
-    return plausible ? { min: rMin, max: rMax } : { min: this.min, max: this.max };
+    const cap = this.isPh ? 14 : 1000;
+    const min = typeof t?.valueMin === 'number' && t.valueMin >= 0 ? t.valueMin : (this.isPh ? 6.8 : 400);
+    const max = typeof t?.valueMax === 'number' && t.valueMax <= cap && t.valueMax > min ? t.valueMax : (this.isPh ? 8.0 : 800);
+    return Math.min(max, Math.max(min, v));
   }
 
   update(device: InsnrgDevice): void {
     this.device = device;
     const { Characteristic } = this.platform;
-
-    const range = this.sanitiseRange();
-    if (!this.propsApplied || range.min !== this.min || range.max !== this.max) {
-      this.min = range.min;
-      this.max = range.max;
-      const target = this.service.getCharacteristic(Characteristic.TargetTemperature);
-      setRangeAndValue(target, this.min, this.max, this.stepSize, this.setpoint());
-      this.propsApplied = true;
+    if (this.isPh) {
+      this.sensor.updateCharacteristic(Characteristic.CurrentTemperature, this.reading());
+    } else {
+      this.sensor.updateCharacteristic(Characteristic.CurrentAmbientLightLevel, this.reading());
     }
-
-    this.service.updateCharacteristic(Characteristic.CurrentTemperature, this.currentReading());
-    this.service.updateCharacteristic(Characteristic.TargetTemperature, this.clamp(this.setpoint()));
+    this.setter.updateCharacteristic(Characteristic.Active, Characteristic.Active.ACTIVE);
+    this.setter.updateCharacteristic(Characteristic.RotationSpeed, this.setpointToSlider(this.setpoint()));
   }
 }

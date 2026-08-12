@@ -99,16 +99,17 @@ export class ThermostatAccessory implements InsnrgAccessoryHandler {
     const fMax = this.platform.cfg.setpointMax;
     const rMin = t?.valueMin;
     const rMax = t?.valueMax;
-    const plausible = typeof rMin === 'number' && typeof rMax === 'number'
-      && Number.isFinite(rMin) && Number.isFinite(rMax)
-      && rMax > rMin && rMin >= 0 && rMax <= 50;
-    if (!plausible) {
+    if (typeof rMin !== 'number' || typeof rMax !== 'number'
+      || !Number.isFinite(rMin) || !Number.isFinite(rMax) || rMax <= rMin) {
       if (rMin !== undefined || rMax !== undefined) {
         this.platform.log.debug(`${this.key}: implausible device range ${rMin}-${rMax}, using config ${fMin}-${fMax}`);
       }
-      return { min: fMin, max: fMax };
+      return { min: Math.max(10, fMin), max: Math.min(38, fMax) };
     }
-    return { min: rMin, max: rMax };
+    // Clamp a legitimate device range (e.g. 10-40) into Apple's 10-38 window.
+    const min = Math.max(10, rMin);
+    const max = Math.min(38, rMax);
+    return max > min ? { min, max } : { min: Math.max(10, fMin), max: Math.min(38, fMax) };
   }
 
   update(device: InsnrgDevice): void {

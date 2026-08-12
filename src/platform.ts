@@ -14,6 +14,8 @@ import { LightAccessory } from './accessories/lightAccessory';
 import { SteppedFanAccessory } from './accessories/steppedFanAccessory';
 import { ChemistrySensorAccessory } from './accessories/chemistrySensorAccessory';
 import { GasHeaterAccessory } from './accessories/gasHeaterAccessory';
+import { WaterTempSensorAccessory } from './accessories/waterTempSensorAccessory';
+import { extractHeaterTelemetry, HeaterTelemetry } from './insnrg/systemValues';
 
 export interface InsnrgAccessoryHandler {
   update(device: InsnrgDevice, state: InsnrgStateMap): void;
@@ -26,7 +28,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   public readonly client: InsnrgClient;
   public readonly cfg: Required<Pick<InsnrgPlatformConfig,
     'pollIntervalSeconds' | 'setpointMin' | 'setpointMax' | 'exposeTimerSwitches' |
-    'exposeTimers' | 'exposeLightModes' | 'exposeChemistrySensors' | 'exposeChlorinator' | 'heaterAutoPump' | 'heaterPumpOffDelayMinutes' | 'debug'>>;
+    'exposeTimers' | 'exposeLightModes' | 'exposeChemistrySensors' | 'exposeChlorinator' | 'heaterAutoPump' | 'heaterPumpOffDelayMinutes' | 'exposeWaterTempSensor' | 'debug'>>;
 
   private readonly cached = new Map<string, PlatformAccessory>();
   private readonly handlers = new Map<string, InsnrgAccessoryHandler>();
@@ -41,6 +43,8 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   private consecutiveFailures = 0;
   private readonly skipLogged = new Set<string>();
   private itemsProbeDone = false;
+  private waterTempHandler?: WaterTempSensorAccessory;
+  private itemsFailures = 0;
   private lastState?: InsnrgStateMap;
   private pumpOffTimer?: NodeJS.Timeout;
 
@@ -63,6 +67,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
       exposeChlorinator: config.exposeChlorinator ?? true,
       heaterAutoPump: config.heaterAutoPump ?? true,
       heaterPumpOffDelayMinutes: Math.max(0, config.heaterPumpOffDelayMinutes ?? 0),
+      exposeWaterTempSensor: config.exposeWaterTempSensor ?? true,
       debug: config.debug ?? false,
     };
 
@@ -117,16 +122,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
         this.log.info(`[debug] getall raw: ${JSON.stringify(rawResponse)}`);
       }
       this.applyState(state);
-      if (this.cfg.debug && !this.itemsProbeDone) {
-        this.itemsProbeDone = true;
-        try {
-          const values = await this.client.fetchSystemValues(this.serial);
-          const text = JSON.stringify(values);
-          this.log.info(`[debug] items raw (${text.length} chars): ${text.slice(0, 60000)}`);
-        } catch (e) {
-          this.log.warn(`[debug] items probe failed: ${e instanceof Error ? e.message : e}`);
-        }
-      }
+      await this.pollSystemValues();
     } catch (e) {
       this.consecutiveFailures++;
       const msg = e instanceof Error ? e.message : String(e);
@@ -138,6 +134,47 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
       }
     } finally {
       this.polling = false;
+    }
+  }
+
+  /** Fetch /prod/items telemetry (water temp, setpoint) and fan it out. */
+  private async pollSystemValues(): Promise<void> {
+    try {
+      const values = await this.client.fetchSystemValues(this.serial);
+      this.itemsFailures = 0;
+      if (this.cfg.debug && !this.itemsProbeDone) {
+        this.itemsProbeDone = true;
+        const text = JSON.stringify(values);
+        this.log.info(`[debug] items raw (${text.length} chars): ${text.slice(0, 60000)}`);
+      }
+      const telemetry: HeaterTelemetry = extractHeaterTelemetry(values);
+      if (this.cfg.exposeWaterTempSensor && typeof telemetry.waterTempC === 'number' && !this.waterTempHandler) {
+        const uuid = this.uuidFor('WATER_TEMP');
+        let accessory = this.cached.get(uuid);
+        if (!accessory) {
+          accessory = new this.api.platformAccessory('Pool Temperature', uuid);
+          this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+          this.cached.set(uuid, accessory);
+          this.log.info('Discovered sensor: Pool Temperature (heater water-temp register)');
+        }
+        accessory.getService(this.Service.AccessoryInformation)!
+          .setCharacteristic(this.Characteristic.Manufacturer, 'INSNRG')
+          .setCharacteristic(this.Characteristic.Model, 'Water Temperature')
+          .setCharacteristic(this.Characteristic.SerialNumber, `${this.serial}-WATER_TEMP`);
+        this.waterTempHandler = new WaterTempSensorAccessory(this, accessory, 'Pool Temperature');
+      }
+      this.waterTempHandler?.updateTelemetry(telemetry);
+      for (const handler of this.handlers.values()) {
+        (handler as { updateTelemetry?: (t: HeaterTelemetry) => void }).updateTelemetry?.(telemetry);
+      }
+    } catch (e) {
+      this.itemsFailures++;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (this.itemsFailures >= 3) {
+        this.log.warn(`System-values fetch failed ${this.itemsFailures}x: ${msg}`);
+      } else {
+        this.log.debug(`System-values fetch failed (will retry): ${msg}`);
+      }
     }
   }
 

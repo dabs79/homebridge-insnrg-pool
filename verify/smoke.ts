@@ -19,6 +19,7 @@ import { LightAccessory } from '../src/accessories/lightAccessory';
 import { SteppedFanAccessory } from '../src/accessories/steppedFanAccessory';
 import { ChemistrySensorAccessory } from '../src/accessories/chemistrySensorAccessory';
 import { GasHeaterAccessory } from '../src/accessories/gasHeaterAccessory';
+import { WaterTempSensorAccessory } from '../src/accessories/waterTempSensorAccessory';
 
 const fixtures = JSON.parse(readFileSync(join(__dirname, 'fixtures.json'), 'utf8'));
 const state: InsnrgStateMap = parseGetAll(fixtures.getallResponse);
@@ -138,6 +139,19 @@ tryCase('Thermostat with missing/NaN temps', () => {
 tryCase('Switch with timer sub-switch (MODE / Filter Pump)', () => {
   const a = new SwitchAccessory(fakePlatform, acc(), 'MODE', 'Filter Pump', true);
   a.update(state['MODE']);
+});
+
+tryCase('Pool Temperature sensor (fresh + stale + missing telemetry)', () => {
+  const a = new WaterTempSensorAccessory(fakePlatform, acc(), 'Pool Temperature');
+  a.updateTelemetry({ waterTempC: 23, waterTempUpdatedAt: new Date().toISOString() });
+  a.updateTelemetry({ waterTempC: 23, waterTempUpdatedAt: '2026-08-11T00:00:00.000Z' }); // stale
+  a.updateTelemetry({});
+});
+
+tryCase('Gas heater thermostat with telemetry (real temp + setpoint read-back)', () => {
+  const a = new GasHeaterAccessory(fakePlatform, acc(), 'GAS_HEATER', 'Gas Heater');
+  a.update(state['GAS_HEATER']);
+  a.updateTelemetry({ waterTempC: 23, poolSetTempC: 36, waterTempUpdatedAt: new Date().toISOString() });
 });
 
 tryCase('Gas heater thermostat (off + on states)', () => {

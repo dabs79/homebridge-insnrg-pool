@@ -10,6 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { InsnrgClient, FetchLike } from '../src/insnrg/client';
+import { extractHeaterTelemetry } from '../src/insnrg/systemValues';
 
 const here = __dirname;
 const fixtures = JSON.parse(readFileSync(join(here, 'fixtures.json'), 'utf8'));
@@ -137,6 +138,24 @@ async function main() {
       passed++;
       console.log('  \u2713 fetchSystemValues matches captured /prod/items request');
     }
+  }
+
+  {
+    // Verbatim records from the live 2026-08-12 items capture.
+    const sample = { status: 1, data: [
+      { id: '2bd5984b-c2ea-4b8f-9f47-014e01ec16d3', deviceType: 'gas_heater', createdAt: '2025-11-14T01:47:37.104Z', isLive: 1, isRealTime: 0, updatedAt: '2026-08-12T05:05:07.675Z', modbusVal: [46], systemId: 'insnrg38182be7f8f0', modbusReg: 56 },
+      { deviceType: 'gas_heater', modbusReg: 65056, modbusVal: [72], updatedAt: '2026-08-12T04:31:00.000Z', isLive: 1, isRealTime: 0, id: 'x', systemId: 'insnrg38182be7f8f0', createdAt: '2025-11-05T00:00:00.000Z' },
+      { deviceType: 'chlorinator', modbusReg: 52, modbusVal: [81], updatedAt: '2026-08-12T05:05:00.000Z', isLive: 1, isRealTime: 0, id: 'y', systemId: 'insnrg38182be7f8f0', createdAt: '2025-11-05T00:00:00.000Z' },
+    ]};
+    const t = extractHeaterTelemetry(sample);
+    if (t.waterTempC === 23 && t.poolSetTempC === 36 && t.waterTempUpdatedAt === '2026-08-12T05:05:07.675Z') {
+      passed++;
+      console.log('  \u2713 extractHeaterTelemetry: reg 56 \u2192 23.0\u00b0C, reg 65056 \u2192 36.0\u00b0C from captured records');
+    } else {
+      failures.push(`extractHeaterTelemetry mismatch: ${JSON.stringify(t)}`);
+    }
+    const empty = extractHeaterTelemetry({ status: 1 });
+    if (Object.keys(empty).length !== 0) failures.push('extractHeaterTelemetry: non-empty on missing data');
   }
 
   // --- result-shape cases ---

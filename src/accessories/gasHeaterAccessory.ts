@@ -2,6 +2,7 @@ import type { PlatformAccessory, Service } from 'homebridge';
 import type { InsnrgPlatform, InsnrgAccessoryHandler } from '../platform';
 import type { InsnrgDevice } from '../insnrg/parse';
 import { setRangeAndValue } from './hapRange';
+import type { HeaterTelemetry } from '../insnrg/systemValues';
 
 /**
  * GAS_HEATER → HomeKit Thermostat.
@@ -16,6 +17,7 @@ import { setRangeAndValue } from './hapRange';
 export class GasHeaterAccessory implements InsnrgAccessoryHandler {
   private readonly service: Service;
   private device?: InsnrgDevice;
+  private telemetry?: HeaterTelemetry;
 
   constructor(
     private readonly platform: InsnrgPlatform,
@@ -68,15 +70,32 @@ export class GasHeaterAccessory implements InsnrgAccessoryHandler {
 
     this.service.getCharacteristic(Characteristic.CurrentTemperature)
       .setProps({ minValue: 0, maxValue: 50 })
-      .onGet(() => this.storedTarget()); // placeholder until "items" endpoint is ported
+      .onGet(() => this.currentWaterTemp());
 
     this.service.getCharacteristic(Characteristic.TemperatureDisplayUnits)
       .updateValue(Characteristic.TemperatureDisplayUnits.CELSIUS);
   }
 
   private storedTarget(): number {
+    // Prefer the cloud-reported setpoint (reg 65056); fall back to the last
+    // value set via HomeKit, then a sane default.
+    const cloud = this.telemetry?.poolSetTempC;
+    if (typeof cloud === 'number') return Math.min(38, Math.max(10, cloud));
     const t = this.accessory.context.heaterTarget;
     return typeof t === 'number' && t >= 10 && t <= 38 ? t : 28;
+  }
+
+  private currentWaterTemp(): number {
+    const t = this.telemetry?.waterTempC;
+    if (typeof t === 'number') return Math.min(50, Math.max(0, t));
+    return this.storedTarget(); // no reading yet — mirror target rather than show 0
+  }
+
+  updateTelemetry(t: HeaterTelemetry): void {
+    this.telemetry = t;
+    const { Characteristic } = this.platform;
+    this.service.updateCharacteristic(Characteristic.CurrentTemperature, this.currentWaterTemp());
+    this.service.updateCharacteristic(Characteristic.TargetTemperature, this.storedTarget());
   }
 
   private hkTargetState(): number {
@@ -99,6 +118,6 @@ export class GasHeaterAccessory implements InsnrgAccessoryHandler {
     this.service.updateCharacteristic(Characteristic.TargetHeatingCoolingState, this.hkTargetState());
     this.service.updateCharacteristic(Characteristic.CurrentHeatingCoolingState, this.hkCurrentState());
     this.service.updateCharacteristic(Characteristic.TargetTemperature, this.storedTarget());
-    this.service.updateCharacteristic(Characteristic.CurrentTemperature, this.storedTarget());
+    this.service.updateCharacteristic(Characteristic.CurrentTemperature, this.currentWaterTemp());
   }
 }

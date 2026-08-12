@@ -93,6 +93,19 @@ Run this plugin as a **child bridge** (Homebridge UI → plugin → Bridge Setti
 | `exposeChlorinator` | true | Chlorinator level fan |
 | `debug` | false | Log raw `getall` JSON each poll (for remote diagnosis) |
 
+## Water temperature & register telemetry
+
+The plugin polls the web app's system-values endpoint (`/prod/items`) each cycle — a mirror of the system's Modbus registers. From a live capture, cross-validated against independently known values:
+
+| Register | Meaning | Encoding |
+|---|---|---|
+| `gas_heater` 56 | Live water temperature | half-degrees (46 → 23.0°C) |
+| `gas_heater` 65056 / `chlorinator` 65048 | Pool set-temperature | half-degrees (72 → 36.0°C) |
+| `chlorinator` 52 | pH | ×10 (81 → 8.1) |
+| `chlorinator` 53 | ORP | ÷10 (68 → 680 mV) |
+
+This feeds: the Gas Heater thermostat's **current temperature** and **setpoint read-back**, and a standalone **Pool Temperature** sensor tile (`exposeWaterTempSensor`, default on). The heater only reads water temp while the pump circulates; each register carries its own `updatedAt`, and readings older than ~2 poll cycles are flagged inactive (StatusActive) rather than hidden.
+
 ## Behaviour notes
 
 - Every command performs a fresh cloud login first — that's the reference implementation's behaviour, ported as-is.

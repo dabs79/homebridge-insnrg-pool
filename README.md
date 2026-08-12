@@ -1,5 +1,10 @@
 # homebridge-insnrg-pool
 
+[![npm version](https://img.shields.io/npm/v/homebridge-insnrg-pool)](https://www.npmjs.com/package/homebridge-insnrg-pool)
+[![npm downloads](https://img.shields.io/npm/dt/homebridge-insnrg-pool)](https://www.npmjs.com/package/homebridge-insnrg-pool)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+
 Homebridge plugin for **INSNRG (Vi / Hub) pool equipment**, bridging the INSNRG **cloud** API into Apple HomeKit: pool/spa heating, spa mode, filter mode, outlets, valves, heat-pump/gas contacts, pool light (with colour modes), pump speed, chlorinator level, and pH/ORP readouts.
 
 The API layer is a faithful TypeScript port of the working Home Assistant integration [jaringuyen/InsnrgHomeAssistance](https://github.com/jaringuyen/InsnrgHomeAssistance), verified request-for-request against the actual Python reference (`npm run verify`).
@@ -47,10 +52,19 @@ Other configurations (heat pumps on the VF contact, Vi-connected lights, spa com
 
 pH/ORP **setpoints** are intentionally read-only for now (adjust them in the INSNRG app); the `setChemistry` command is already ported and verified if we want writable setpoints later.
 
-## Install (local, unpublished)
+## Install
+
+Search for **INSNRG Pool** (`homebridge-insnrg-pool`) in the Homebridge UI's Plugins tab, or:
+
+```
+npm install -g homebridge-insnrg-pool
+```
+
+For development installs from source:
 
 ```powershell
-cd C:\homebridge-plugins\homebridge-insnrg-pool
+git clone https://github.com/dabs79/homebridge-insnrg-pool
+cd homebridge-insnrg-pool
 npm install
 npm run build
 npm install -g .
@@ -78,6 +92,10 @@ Run this plugin as a **child bridge** (Homebridge UI → plugin → Bridge Setti
 **Heater + pump interlock (`heaterAutoPump`, default on):** turning the Gas Heater on always sends Filter Pump ON first — unconditionally, because the plugin's view of pump state can be minutes stale between polls, and gas ignition fails without flow. Note: if the pump was in timer mode, this puts it into manual ON; re-enable your timer (per-device Timer switch or All Auto) afterwards if you want the schedule back. Turning the heater off never stops the pump (the Gi runs the pump briefly after shutdown to purge residual heat).
 
 **Child bridge vs main bridge:** if child-bridge accessories pair but show "unresponsive" in the Home app while the logs look healthy — or the Homebridge UI Accessories tab stays empty — test by disabling the child bridge so the accessories publish via the main bridge. If that works, the accessory definitions are fine and the fault is stale child-bridge instance files: stop Homebridge and delete the `cachedAccessories.<ID>` and `persist/AccessoryInfo.<ID>.json` files belonging to old/dead child-bridge identities only. Avoid repeatedly resetting the child-bridge identity; each reset orphans the previous pairing and adds another stale identity.
+
+- **Paired successfully but accessories stay "Not responding" in the Home app — while the Homebridge UI's Accessories tab controls everything fine:** the bridge is healthy; the problem is on the Apple side. Pairing talks iPhone→bridge directly, but ongoing control routes through your Apple home hub (Apple TV / HomePod), and after repeated re-pairing or bridge identity changes the hubs and iOS accumulate stale sessions and mDNS records. Fix: **reboot every home hub** (Home app → Home Settings → Home Hubs & Bridges to list them), then reboot the iPhone, and give the Home app a couple of minutes to re-establish sessions. Avoid further remove/re-add cycles until you've tried this — each cycle adds more stale state to exactly the caches causing the problem.
+
+- **Accessories respond, then go "Not responding" again hours later (recurring):** the bridges are fine — look at the environment. (a) *Windows power management:* if the Homebridge PC sleeps or its NIC powers down, the bridges vanish; set sleep to Never and untick "Allow the computer to turn off this device" on the network adapter. (b) *Mesh Wi-Fi multicast (e.g. TP-Link Deco):* mesh systems are notorious for dropping the mDNS records HomeKit hubs rely on — turn OFF Fast Roaming in the mesh app, hardwire an Apple TV hub to the main mesh node via Ethernet, and give the Homebridge machine and hubs DHCP reservations. iOS chooses the active home hub itself; if instability returns, check whether a Wi-Fi HomePod has taken the hub role from the wired Apple TV (Home Settings → Home Hubs & Bridges).
 
 ## Config options
 

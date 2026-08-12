@@ -14,5 +14,6 @@ export interface InsnrgPlatformConfig {
   exposeLightModes?: boolean;     // one switch per light colour mode
   exposeChemistrySensors?: boolean; // pH / ORP readouts (as temp/light sensors — HomeKit has no pH type)
   exposeChlorinator?: boolean;    // chlorinator level as a stepped fan
+  heaterAutoPump?: boolean;       // turning the heater on starts the filter pump first (gas ignition needs flow)
   debug?: boolean;                // dump raw getall JSON to the log each poll
 }

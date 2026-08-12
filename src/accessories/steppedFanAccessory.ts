@@ -13,6 +13,8 @@ export class SteppedFanAccessory implements InsnrgAccessoryHandler {
   private readonly fan: Service;
   private device?: InsnrgDevice;
   private modes: string[] = [];
+  private speeds: number[] = [];
+  private percent = false;
   private propsApplied = false;
 
   constructor(
@@ -47,18 +49,42 @@ export class SteppedFanAccessory implements InsnrgAccessoryHandler {
       });
   }
 
-  private step(): number { return this.modes.length ? 100 / this.modes.length : 100; }
+  private step(): number {
+    if (!this.modes.length) return 100;
+    if (this.percent) {
+      const sorted = [...this.speeds].sort((a, b) => a - b);
+      let min = 100;
+      for (let i = 1; i < sorted.length; i++) min = Math.min(min, sorted[i] - sorted[i - 1]);
+      return min > 0 ? min : 100 / this.modes.length;
+    }
+    return 100 / this.modes.length;
+  }
+
+  /** Rebuild the mode→slider-speed mapping. Literal percentage labels
+   *  ('0%'…'100%', as the Vi chlorinator reports) map 1:1 onto the slider;
+   *  anything else maps evenly by index. */
+  private rebuildSpeeds(modes: string[]): void {
+    this.modes = modes;
+    this.percent = modes.length > 0 && modes.every((m) => /^\d{1,3}\s*%$/.test(m.trim()));
+    this.speeds = this.percent
+      ? modes.map((m) => Math.min(100, parseInt(m, 10)))
+      : modes.map((_, i) => (i + 1) * (100 / modes.length));
+  }
 
   private currentSpeed(): number {
     const idx = this.modes.indexOf(this.device?.modeValue ?? '');
-    return idx >= 0 ? (idx + 1) * this.step() : 0;
+    return idx >= 0 ? this.speeds[idx] : 0;
   }
 
   private speedToIndex(speed: number): number | null {
     if (!this.modes.length) return null;
-    if (speed <= 0) return null; // treat slider-to-zero like Active off: no API equivalent
-    const idx = Math.min(this.modes.length - 1, Math.max(0, Math.round(speed / this.step()) - 1));
-    return idx;
+    // Non-percent selects have no real "off"; percent selects do ('0%').
+    if (!this.percent && speed <= 0) return null;
+    let best = 0;
+    for (let i = 1; i < this.speeds.length; i++) {
+      if (Math.abs(this.speeds[i] - speed) < Math.abs(this.speeds[best] - speed)) best = i;
+    }
+    return best;
   }
 
   update(device: InsnrgDevice): void {
@@ -67,7 +93,7 @@ export class SteppedFanAccessory implements InsnrgAccessoryHandler {
 
     const modes = device.modeList ?? [];
     if (modes.length && (!this.propsApplied || modes.join('|') !== this.modes.join('|'))) {
-      this.modes = modes;
+      this.rebuildSpeeds(modes);
       const rs = this.fan.getCharacteristic(Characteristic.RotationSpeed);
       rs.updateValue(this.currentSpeed()); // valid value before setProps
       rs.setProps({ minValue: 0, maxValue: 100, minStep: this.step() });

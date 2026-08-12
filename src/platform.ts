@@ -25,7 +25,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   public readonly client: InsnrgClient;
   public readonly cfg: Required<Pick<InsnrgPlatformConfig,
     'pollIntervalSeconds' | 'setpointMin' | 'setpointMax' | 'exposeTimerSwitches' |
-    'exposeTimers' | 'exposeLightModes' | 'exposeChemistrySensors' | 'exposeChlorinator' | 'debug'>>;
+    'exposeTimers' | 'exposeLightModes' | 'exposeChemistrySensors' | 'exposeChlorinator' | 'heaterAutoPump' | 'debug'>>;
 
   private readonly cached = new Map<string, PlatformAccessory>();
   private readonly handlers = new Map<string, InsnrgAccessoryHandler>();
@@ -36,6 +36,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   private prunedOnce = false;
   private consecutiveFailures = 0;
   private readonly skipLogged = new Set<string>();
+  private lastState?: InsnrgStateMap;
 
   constructor(
     public readonly log: Logger,
@@ -54,6 +55,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
       exposeLightModes: config.exposeLightModes ?? false,
       exposeChemistrySensors: config.exposeChemistrySensors ?? true,
       exposeChlorinator: config.exposeChlorinator ?? true,
+      heaterAutoPump: config.heaterAutoPump ?? true,
       debug: config.debug ?? false,
     };
 
@@ -126,6 +128,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   }
 
   private applyState(state: InsnrgStateMap): void {
+    this.lastState = state;
     const desired = new Set<string>();
 
     for (const [key, device] of Object.entries(state)) {
@@ -232,6 +235,14 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
 
   /** Shared command wrapper: log, fire, schedule the 3s refresh, surface failures. */
   async sendSwitch(key: string, deviceId: string, mode: SwitchMode): Promise<void> {
+    // Gas ignition halts without water flow (Gi manual): when turning the
+    // heater on, start the filter pump first unless it's already running.
+    if (key === 'GAS_HEATER' && mode === 'ON' && this.cfg.heaterAutoPump
+        && this.lastState?.['MODE']?.switchStatus !== 'ON') {
+      const pumpId = this.lastState?.['MODE']?.deviceId ?? 'MODE';
+      this.log.info('→ GAS_HEATER on: starting Filter Pump first (heaterAutoPump)');
+      await this.client.turnTheSwitch('ON', pumpId);
+    }
     this.log.info(`→ ${key}: ${mode} (setDeviceStatus/${mode})`);
     await this.client.turnTheSwitch(mode, deviceId);
     this.requestRefreshSoon();

@@ -326,25 +326,33 @@
       ]
     },
     {
-      "deviceId": "CHLORINATOR",
-      "name": "Chlorinator",
+      "cmd": [
+        "CHLORINATOR"
+      ],
+      "name": "Chlorinator Level",
       "type": [
         "CHLORINATOR"
       ],
+      "deviceId": "CHLORINATOR",
+      "supportedController": [
+        "ModeController"
+      ],
       "options": [
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8"
+        "0%",
+        "20%",
+        "40%",
+        "60%",
+        "80%",
+        "100%"
       ],
       "properties": [
         {
           "namespace": "Alexa.ModeController",
-          "value": "5"
+          "instance": "CHLORINATOR_mode_instance",
+          "name": "mode",
+          "value": "100%",
+          "timeOfSample": "2026-08-12T01:34:25.317Z",
+          "uncertaintyInMilliseconds": 0
         }
       ]
     }

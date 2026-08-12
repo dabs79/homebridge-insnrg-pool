@@ -23,8 +23,13 @@ const fixtures = JSON.parse(readFileSync(join(__dirname, 'fixtures.json'), 'utf8
 const state: InsnrgStateMap = parseGetAll(fixtures.getallResponse);
 
 // Minimal PlatformAccessory shim over a hap Accessory.
+const hapWarnings: string[] = [];
 class FakePlatformAccessory {
-  private acc = new hap.Accessory('Test', hap.uuid.generate(`test-${Math.random()}`));
+  private acc = (() => {
+    const a = new hap.Accessory('Test', hap.uuid.generate(`test-${Math.random()}`));
+    a.on('characteristic-warning', (w: { message: string }) => hapWarnings.push(w.message));
+    return a;
+  })();
   displayName = 'Test';
   getService(s: unknown) { return this.acc.getService(s); }
   addService(ctor: unknown, name?: string, subtype?: string) {
@@ -119,6 +124,12 @@ tryCase('Stepped fan CHLORINATOR (8 levels)', () => {
   a.update(state['CHLORINATOR']);
 });
 
+tryCase('Stepped fan percent labels map 1:1 (real Vi chlorinator)', () => {
+  const a = new SteppedFanAccessory(fakePlatform, acc(), 'CHLORINATOR', 'Chlorinator Level');
+  a.update(state['CHLORINATOR']); // real payload: 0%..100% in 20% steps, at 100%
+  a.update(state['CHLORINATOR']);
+});
+
 tryCase('Stepped fan with single-level modeList (single-speed pump edge)', () => {
   const a = new SteppedFanAccessory(fakePlatform, acc(), 'PUMP_SPEED', 'Pump Speed');
   const bad = JSON.parse(JSON.stringify(state['PUMP_SPEED']));
@@ -133,20 +144,28 @@ tryCase('Stepped fan with empty modeList', () => {
   a.update(bad);
 });
 
-tryCase('pH sensor (string value)', () => {
-  const a = new ChemistrySensorAccessory(fakePlatform, acc(), 'PH', 'Current pH');
+tryCase('pH thermostat (real range 7.0-7.8, reading above max)', () => {
+  const a = new ChemistrySensorAccessory(fakePlatform, acc(), 'PH', 'pH Sensor');
+  a.update(state['PH']); // real payload: value 8, setPoint 7.7, range 7-7.8
   a.update(state['PH']);
 });
 
-tryCase('ORP sensor + blank reading', () => {
-  const a = new ChemistrySensorAccessory(fakePlatform, acc(), 'ORP', 'Current ORP');
-  a.update(state['ORP']);
+tryCase('ORP thermostat (real range 550-750) + blank reading + missing range', () => {
+  const a = new ChemistrySensorAccessory(fakePlatform, acc(), 'ORP', 'ORP Sensor');
+  a.update(state['ORP']); // real payload: value 680, setPoint 680, range 550-750
   const blank = JSON.parse(JSON.stringify(state['ORP']));
-  blank.temperatureSensorStatus.value = ' ';
-  a.update(blank); // the reference treats ' ' as no reading — must clamp, not throw
+  blank.temperatureSensorStatus = {};
+  blank.thermostatStatus = {};
+  a.update(blank); // no reading/range — fallbacks, no throw
+  a.update(state['ORP']); // range returns — re-clamp before setProps, no throw
 });
 
 console.log('');
+if (hapWarnings.length) {
+  failures += hapWarnings.length;
+  console.error(`  ✗ ${hapWarnings.length} HAP characteristic warning(s) — these spam user logs and indicate ordering bugs:`);
+  for (const w of hapWarnings) console.error(`      ${w}`);
+}
 if (failures) {
   console.error(`SMOKE FAILED — ${failures} accessory case(s) threw under real HAP validation.`);
   process.exit(1);

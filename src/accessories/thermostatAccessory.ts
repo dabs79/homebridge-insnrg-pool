@@ -1,6 +1,7 @@
 import type { PlatformAccessory, Service } from 'homebridge';
 import type { InsnrgPlatform, InsnrgAccessoryHandler } from '../platform';
 import type { InsnrgDevice } from '../insnrg/parse';
+import { setRangeAndValue } from './hapRange';
 
 /**
  * POOL_CONTROL / SPA_CONTROL → HomeKit Thermostat (heat-only).
@@ -31,11 +32,9 @@ export class ThermostatAccessory implements InsnrgAccessoryHandler {
       ?? accessory.addService(Service.Thermostat, name);
     this.service.setCharacteristic(Characteristic.Name, name);
 
-    // HAP ordering rule: valid current value BEFORE setProps narrows the range.
-    const mid = this.clamp((this.min + this.max) / 2);
-    this.service.getCharacteristic(Characteristic.TargetTemperature).updateValue(mid);
-    this.service.getCharacteristic(Characteristic.TargetTemperature)
-      .setProps({ minValue: this.min, maxValue: this.max, minStep: 0.5 })
+    const target0 = this.service.getCharacteristic(Characteristic.TargetTemperature);
+    setRangeAndValue(target0, this.min, this.max, 0.5, (this.min + this.max) / 2);
+    target0
       .onGet(() => this.clamp(this.targetTemp()))
       .onSet(async (v) => {
         const temp = this.clamp(Number(v));
@@ -122,8 +121,7 @@ export class ThermostatAccessory implements InsnrgAccessoryHandler {
       this.max = range.max;
       // Re-clamp current value into the new range BEFORE narrowing props.
       const target = this.service.getCharacteristic(Characteristic.TargetTemperature);
-      target.updateValue(this.clamp(this.targetTemp()));
-      target.setProps({ minValue: this.min, maxValue: this.max, minStep: 0.5 });
+      setRangeAndValue(target, this.min, this.max, 0.5, this.targetTemp());
       this.propsApplied = true;
     }
 

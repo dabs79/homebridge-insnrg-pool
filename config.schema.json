@@ -9,20 +9,17 @@
       "name": {
         "title": "Name",
         "type": "string",
-        "default": "INSNRG Pool",
-        "required": true
+        "default": "INSNRG Pool"
       },
       "email": {
         "title": "INSNRG Email",
         "type": "string",
         "format": "email",
-        "required": true,
         "description": "The email you use to log in at insnrgapp.com."
       },
       "password": {
         "title": "INSNRG Password",
         "type": "string",
-        "required": true,
         "description": "Your insnrgapp.com password. Stored in your Homebridge config.",
         "x-schema-form": {
           "type": "password"
@@ -108,6 +105,11 @@
         "default": false,
         "description": "Off (default): pH/ORP are read-only in HomeKit; adjust targets in the INSNRG app. On: adds slider controls (rendered as fan tiles) \u2014 pH slider is pH\u00d710 (77% = 7.7), ORP slider is mV\u00f710 (68% = 680)."
       }
-    }
+    },
+    "required": [
+      "name",
+      "email",
+      "password"
+    ]
   }
 }

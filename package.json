@@ -1,7 +1,7 @@
 {
   "name": "homebridge-insnrg-pool",
   "displayName": "INSNRG Pool",
-  "version": "2.3.2",
+  "version": "2.4.0",
   "description": "Homebridge plugin for INSNRG (Vi/Hub) pool equipment via the INSNRG cloud API \u2014 pool/spa heating, outlets, valves, lights, pump speed, chlorinator, pH/ORP.",
   "type": "commonjs",
   "main": "dist/index.js",

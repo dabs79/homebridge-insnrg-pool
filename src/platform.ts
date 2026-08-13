@@ -28,7 +28,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
   public readonly client: InsnrgClient;
   public readonly cfg: Required<Pick<InsnrgPlatformConfig,
     'pollIntervalSeconds' | 'setpointMin' | 'setpointMax' | 'exposeTimerSwitches' |
-    'exposeTimers' | 'exposeLightModes' | 'exposeChemistrySensors' | 'exposeChlorinator' | 'heaterAutoPump' | 'heaterPumpOffDelayMinutes' | 'exposeWaterTempSensor' | 'chemistrySetpoints' | 'debug'>>;
+    'exposeTimers' | 'exposeLightModes' | 'exposeChemistrySensors' | 'exposeChlorinator' | 'heaterAutoPump' | 'heaterPumpOffDelayMinutes' | 'exposeWaterTempSensor' | 'chemistrySetpoints' | 'debug'>> & { hiddenDevices: string[] };
 
   private readonly cached = new Map<string, PlatformAccessory>();
   private readonly handlers = new Map<string, InsnrgAccessoryHandler>();
@@ -69,6 +69,7 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
       heaterPumpOffDelayMinutes: Math.max(0, config.heaterPumpOffDelayMinutes ?? 0),
       exposeWaterTempSensor: config.exposeWaterTempSensor ?? true,
       chemistrySetpoints: config.chemistrySetpoints ?? false,
+      hiddenDevices: (config.hiddenDevices ?? []).map((k) => k.trim().toUpperCase()),
       debug: config.debug ?? false,
     };
 
@@ -202,6 +203,23 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
       handler.update(device, state);
     }
 
+    // Explicitly hidden devices are removed deterministically (config-driven,
+    // unlike presence-based pruning which we never do).
+    const hiddenStale: PlatformAccessory[] = [];
+    for (const hiddenKey of this.cfg.hiddenDevices) {
+      const uuid = this.uuidFor(hiddenKey);
+      const acc = this.cached.get(uuid);
+      if (acc) {
+        hiddenStale.push(acc);
+        this.cached.delete(uuid);
+        this.handlers.delete(uuid);
+      }
+    }
+    if (hiddenStale.length) {
+      this.log.info(`Removing hidden device accessorie(s): ${hiddenStale.map(a => a.displayName).join(', ')}`);
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, hiddenStale);
+    }
+
     // Devices are reported CONDITIONALLY by the cloud (e.g. the chlorinator
     // level only while the cell runs), so absence at startup does NOT mean
     // removed — never auto-prune. Genuinely dead accessories can be removed
@@ -217,9 +235,14 @@ export class InsnrgPlatform implements DynamicPlatformPlugin {
     }
   }
 
+  private isHidden(key: string): boolean {
+    return this.cfg.hiddenDevices.includes(key.toUpperCase());
+  }
+
   private planFor(key: string, device: InsnrgDevice):
     | { kind: 'thermostat' | 'switch' | 'light' | 'steppedFan' | 'chemistry' | 'gasHeater' }
     | null {
+    if (this.isHidden(key)) return null;
     if (CLIMATE_KEYS.includes(key)) return { kind: 'thermostat' };
     if (key === 'PH' || key === 'ORP') {
       return this.cfg.exposeChemistrySensors ? { kind: 'chemistry' } : null;

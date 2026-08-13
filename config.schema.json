@@ -104,6 +104,15 @@
         "type": "boolean",
         "default": false,
         "description": "Off (default): pH/ORP are read-only in HomeKit; adjust targets in the INSNRG app. On: adds slider controls (rendered as fan tiles) \u2014 pH slider is pH\u00d710 (77% = 7.7), ORP slider is mV\u00f710 (68% = 680)."
+      },
+      "hiddenDevices": {
+        "title": "Hidden devices",
+        "type": "array",
+        "items": {
+          "title": "Device key",
+          "type": "string"
+        },
+        "description": "Device keys to hide from HomeKit (e.g. OUTLET_2 if a raw pump outlet duplicates the Filter Pump control). Keys appear in the plugin's 'Discovered' log lines. Hidden accessories are removed from HomeKit on the next poll."
       }
     },
     "required": [
